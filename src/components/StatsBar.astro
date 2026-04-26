@@ -1,0 +1,61 @@
+---
+import { fmtYuan, fmtDate } from '../utils/format';
+
+interface PriceEntry {
+  date: string;
+  metalPrNd: number;
+  oxidePrNd: number;
+  wastePrNd: number;
+}
+
+interface Props {
+  prices: PriceEntry[];
+}
+
+const { prices } = Astro.props;
+
+const latest = prices[prices.length - 1];
+const metalPrices = prices.map(p => p.metalPrNd);
+const metalMax = Math.max(...metalPrices);
+const metalMin = Math.min(...metalPrices);
+const metalMaxDate = prices[metalPrices.indexOf(metalMax)].date;
+const metalMinDate = prices[metalPrices.indexOf(metalMin)].date;
+const totalChange = ((latest.metalPrNd - prices[0].metalPrNd) / prices[0].metalPrNd * 100).toFixed(1);
+const isUp = latest.metalPrNd >= prices[0].metalPrNd;
+---
+
+<section class="stats">
+  <div class="stat-item">
+    <span class="stat-label">数据区间</span>
+    <span class="stat-value">{fmtDate(prices[0].date)} ~ {fmtDate(latest.date)}</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">最高价（金属镨钕）</span>
+    <span class="stat-value up">{fmtYuan(metalMax)}元 <small>{fmtDate(metalMaxDate)}</small></span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">最低价（金属镨钕）</span>
+    <span class="stat-value down">{fmtYuan(metalMin)}元 <small>{fmtDate(metalMinDate)}</small></span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">累计涨幅</span>
+    <span class:list={['stat-value', isUp ? 'up' : 'down']}>{totalChange}%</span>
+  </div>
+</section>
+
+<style>
+  .stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    margin-bottom: 20px; padding: 16px;
+    background: #1e293b; border-radius: 12px; border: 1px solid #293548;
+  }
+  .stat-item { text-align: center; }
+  .stat-label { display: block; color: #64748b; font-size: 0.72rem; margin-bottom: 4px; }
+  .stat-value { font-size: 0.95rem; font-weight: 600; color: #e2e8f0; }
+  .stat-value.up { color: #22c55e; }
+  .stat-value.down { color: #ef4444; }
+  .stat-value small { color: #64748b; font-weight: 400; margin-left: 4px; }
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>

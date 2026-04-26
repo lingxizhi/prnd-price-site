@@ -1,98 +1,42 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import PriceCard from '../components/PriceCard.astro';
+import StatsBar from '../components/StatsBar.astro';
+import PriceTable from '../components/PriceTable.astro';
 import prices from '../data/prices.json';
+import { fmtDate } from '../utils/format';
+
+const SITE_URL = 'https://prnd-price-site.vercel.app';
 
 const latest = prices[prices.length - 1];
 const prev = prices.length > 1 ? prices[prices.length - 2] : latest;
 
-// 元/吨 显示
-function fmtYuan(n: number) {
-  return n.toLocaleString('zh-CN');
-}
-
-function change(cur: number, old: number) {
-  const diff = (cur - old) / 10000;
-  const pct = ((cur - old) / old * 100).toFixed(2);
-  return { diff, pct, up: diff >= 0 };
-}
-
-const metalChg = change(latest.metalPrNd, prev.metalPrNd);
-const oxideChg = change(latest.oxidePrNd, prev.oxidePrNd);
-const wasteChg = change(latest.wastePrNd, prev.wastePrNd);
-
-function fmtChg(diff: number) {
-  return (diff >= 0 ? '+' : '') + diff.toLocaleString('zh-CN');
-}
-
-// 统计信息
-const metalPrices = prices.map(p => p.metalPrNd);
-const metalMax = Math.max(...metalPrices);
-const metalMin = Math.min(...metalPrices);
-const metalMaxDate = prices[metalPrices.indexOf(metalMax)].date;
-const metalMinDate = prices[metalPrices.indexOf(metalMin)].date;
-
-// 图表数据（万元格式）
-const dates = JSON.stringify(prices.map(p => p.date));
-const metalData = JSON.stringify(prices.map(p => +(p.metalPrNd / 10000).toFixed(2)));
-const oxideData = JSON.stringify(prices.map(p => +(p.oxidePrNd / 10000).toFixed(2)));
-const wasteData = JSON.stringify(prices.map(p => +(p.wastePrNd / 10000).toFixed(2)));
+// 图表数据：日期格式化为展示格式，价格保持原始元/吨
+const chartData = {
+  dates: prices.map(p => fmtDate(p.date)),
+  metal: prices.map(p => p.metalPrNd),
+  oxide: prices.map(p => p.oxidePrNd),
+  waste: prices.map(p => p.wastePrNd),
+};
 ---
 
-<Layout title="镨钕价格监控系统">
+<Layout
+  title="镨钕价格监控系统 - 稀土PrNd实时行情"
+  description="实时追踪金属镨钕、氧化镨钕、废料镨钕价格走势，覆盖2025年12月至今全部工作日数据。"
+  canonicalUrl={SITE_URL}
+>
   <div class="container">
     <header>
       <h1>📊 镨钕价格监控系统</h1>
-      <p class="subtitle">PrNd Price Monitoring System · 最近更新 {latest.date}</p>
+      <p class="subtitle">PrNd Price Monitoring System · 最近更新 {fmtDate(latest.date)}</p>
     </header>
 
-    <!-- 最新价格卡片 -->
-    <section class="cards">
-      <div class="card">
-        <div class="card-label">金属镨钕</div>
-        <div class="card-value">{fmtYuan(latest.metalPrNd)}<span class="unit">元/吨</span></div>
-        <div class:list={['card-change', metalChg.up ? 'up' : 'down']}>
-          {fmtChg(metalChg.diff)}元 ({metalChg.pct}%)
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-label">氧化镨钕</div>
-        <div class="card-value">{fmtYuan(latest.oxidePrNd)}<span class="unit">元/吨</span></div>
-        <div class:list={['card-change', oxideChg.up ? 'up' : 'down']}>
-          {fmtChg(oxideChg.diff)}元 ({oxideChg.pct}%)
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-label">废料镨钕</div>
-        <div class="card-value">{fmtYuan(latest.wastePrNd)}<span class="unit">元/吨</span></div>
-        <div class:list={['card-change', wasteChg.up ? 'up' : 'down']}>
-          {fmtChg(wasteChg.diff)}元 ({wasteChg.pct}%)
-        </div>
-      </div>
-    </section>
+    <PriceCard label="金属镨钕" price={latest.metalPrNd} prevPrice={prev.metalPrNd} />
+    <PriceCard label="氧化镨钕" price={latest.oxidePrNd} prevPrice={prev.oxidePrNd} />
+    <PriceCard label="废料镨钕" price={latest.wastePrNd} prevPrice={prev.wastePrNd} />
 
-    <!-- 统计摘要 -->
-    <section class="stats">
-      <div class="stat-item">
-        <span class="stat-label">数据区间</span>
-        <span class="stat-value">{prices[0].date} ~ {latest.date}</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-label">最高价（金属镨钕）</span>
-        <span class="stat-value up">{fmtYuan(metalMax)}元 <small>{metalMaxDate}</small></span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-label">最低价（金属镨钕）</span>
-        <span class="stat-value down">{fmtYuan(metalMin)}元 <small>{metalMinDate}</small></span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-label">累计涨幅</span>
-        <span class:list={['stat-value', (latest.metalPrNd >= prices[0].metalPrNd) ? 'up' : 'down']}>
-          {((latest.metalPrNd - prices[0].metalPrNd) / prices[0].metalPrNd * 100).toFixed(1)}%
-        </span>
-      </div>
-    </section>
+    <StatsBar prices={prices} />
 
-    <!-- 走势图表 -->
     <section class="chart-section">
       <div class="section-header">
         <h2>📈 价格走势</h2>
@@ -105,46 +49,9 @@ const wasteData = JSON.stringify(prices.map(p => +(p.wastePrNd / 10000).toFixed(
       <div id="chart" style="width:100%;height:420px;"></div>
     </section>
 
-    <!-- 历史数据表格 -->
     <section class="table-section">
       <h2>📋 历史数据</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th>金属镨钕<br/><small>元/吨</small></th>
-              <th>氧化镨钕<br/><small>元/吨</small></th>
-              <th>废料镨钕<br/><small>元/吨</small></th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...prices].reverse().map((p, i, arr) => {
-              const next = arr[i + 1];
-              const mChg = next ? p.metalPrNd - next.metalPrNd : 0;
-              const oChg = next ? p.oxidePrNd - next.oxidePrNd : 0;
-              const wChg = next ? p.wastePrNd - next.wastePrNd : 0;
-              return (
-                <tr>
-                  <td>{p.date}</td>
-                  <td class:list={[mChg > 0 ? 'price-up' : mChg < 0 ? 'price-down' : '']}>
-                    {fmtYuan(p.metalPrNd)}
-                    {mChg !== 0 && <small>{mChg > 0 ? '↑' : '↓'}{Math.abs(mChg).toLocaleString('zh-CN')}</small>}
-                  </td>
-                  <td class:list={[oChg > 0 ? 'price-up' : oChg < 0 ? 'price-down' : '']}>
-                    {fmtYuan(p.oxidePrNd)}
-                    {oChg !== 0 && <small>{oChg > 0 ? '↑' : '↓'}{Math.abs(oChg).toLocaleString('zh-CN')}</small>}
-                  </td>
-                  <td class:list={[wChg > 0 ? 'price-up' : wChg < 0 ? 'price-down' : '']}>
-                    {fmtYuan(p.wastePrNd)}
-                    {wChg !== 0 && <small>{wChg > 0 ? '↑' : '↓'}{Math.abs(wChg).toLocaleString('zh-CN')}</small>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <PriceTable prices={prices} />
     </section>
 
     <footer>
@@ -152,109 +59,14 @@ const wasteData = JSON.stringify(prices.map(p => +(p.wastePrNd / 10000).toFixed(
     </footer>
   </div>
 
-  <script is:inline src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
-  <script is:inline define:vars={{ dates, metalData, oxideData, wasteData }}>
-    document.addEventListener('DOMContentLoaded', function() {
-      if (typeof echarts === 'undefined') {
-        document.getElementById('chart').innerHTML = '<p style="text-align:center;color:#94a3b8;padding:60px;">图表加载失败，请刷新页面重试</p>';
-        return;
-      }
-
-      const chart = echarts.init(document.getElementById('chart'), 'dark');
-
-      function getOption(startIdx) {
-        const d = dates.slice(startIdx);
-        const m = metalData.slice(startIdx);
-        const o = oxideData.slice(startIdx);
-        const w = wasteData.slice(startIdx);
-        return {
-          backgroundColor: 'transparent',
-          tooltip: {
-            trigger: 'axis',
-            backgroundColor: 'rgba(15,23,42,0.95)',
-            borderColor: '#334155',
-            textStyle: { color: '#e2e8f0', fontSize: 13 },
-            formatter: function(params) {
-              let s = '<b>' + params[0].axisValue + '</b><br/>';
-              params.forEach(p => {
-                s += p.marker + ' ' + p.seriesName + '：<b>' + p.value.toLocaleString() + '</b> 元/吨<br/>>';
-              });
-              return s;
-            }
-          },
-          legend: {
-            data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
-            top: 5, textStyle: { color: '#94a3b8', fontSize: 12 }
-          },
-          grid: { left: 65, right: 20, top: 45, bottom: 25 },
-          xAxis: {
-            type: 'category', data: d, boundaryGap: false,
-            axisLabel: { rotate: 30, fontSize: 10, color: '#64748b' },
-            axisLine: { lineStyle: { color: '#1e293b' } },
-            axisTick: { show: false }
-          },
-          yAxis: {
-            type: 'value', name: '元/吨',
-            nameTextStyle: { color: '#64748b', fontSize: 11 },
-            axisLabel: { color: '#64748b', fontSize: 11 },
-            splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } }
-          },
-          series: [
-            {
-              name: '金属镨钕', type: 'line', data: m, smooth: true,
-              symbol: 'circle', symbolSize: 4, showSymbol: false,
-              lineStyle: { width: 2.5, color: '#f97316' },
-              itemStyle: { color: '#f97316' },
-              areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(249,115,22,0.2)' },
-                { offset: 1, color: 'rgba(249,115,22,0)' }
-              ])}
-            },
-            {
-              name: '氧化镨钕', type: 'line', data: o, smooth: true,
-              symbol: 'circle', symbolSize: 4, showSymbol: false,
-              lineStyle: { width: 2.5, color: '#38bdf8' },
-              itemStyle: { color: '#38bdf8' },
-              areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(56,189,248,0.15)' },
-                { offset: 1, color: 'rgba(56,189,248,0)' }
-              ])}
-            },
-            {
-              name: '废料镨钕', type: 'line', data: w, smooth: true,
-              symbol: 'circle', symbolSize: 4, showSymbol: false,
-              lineStyle: { width: 2.5, color: '#a78bfa' },
-              itemStyle: { color: '#a78bfa' },
-              areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(167,139,250,0.15)' },
-                { offset: 1, color: 'rgba(167,139,250,0)' }
-              ])}
-            }
-          ]
-        };
-      }
-
-      chart.setOption(getOption(0));
-
-      // 时间范围切换
-      document.querySelectorAll('.chart-tabs .tab').forEach(btn => {
-        btn.addEventListener('click', function() {
-          document.querySelectorAll('.chart-tabs .tab').forEach(b => b.classList.remove('active'));
-          this.classList.add('active');
-          const range = this.dataset.range;
-          if (range === 'all') {
-            chart.setOption(getOption(0), true);
-          } else {
-            const days = parseInt(range);
-            const startIdx = Math.max(0, dates.length - days);
-            chart.setOption(getOption(startIdx), true);
-          }
-        });
-      });
-
-      window.addEventListener('resize', () => chart.resize());
-    });
+  <script>
+    import { initChart } from '../utils/chart';
+    const chartData = JSON.parse(document.getElementById('chart-data')!.textContent!);
+    initChart('chart', chartData);
   </script>
+
+  <!-- 图表数据注入（SSR输出，客户端读取） -->
+  <script type="application/json" id="chart-data" set:html={JSON.stringify(chartData)} />
 
   <style>
     .container { max-width: 960px; margin: 0 auto; padding: 20px 16px; }
@@ -264,33 +76,8 @@ const wasteData = JSON.stringify(prices.map(p => +(p.wastePrNd / 10000).toFixed(
     header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: 1px; }
     .subtitle { color: #64748b; margin-top: 6px; font-size: 0.85rem; }
 
-    /* 价格卡片 */
-    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
-    .card {
-      background: linear-gradient(135deg, #1e293b 0%, #1a2332 100%);
-      border-radius: 14px; padding: 20px 16px; text-align: center;
-      border: 1px solid #293548; transition: all 0.3s;
-    }
-    .card:hover { border-color: #475569; transform: translateY(-2px); }
-    .card-label { color: #94a3b8; font-size: 0.8rem; margin-bottom: 10px; letter-spacing: 1px; }
-    .card-value { font-size: 1.8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .unit { font-size: 0.75rem; color: #64748b; margin-left: 3px; font-weight: 400; }
-    .card-change { font-size: 0.8rem; margin-top: 8px; font-weight: 500; }
-    .card-change.up { color: #22c55e; }
-    .card-change.down { color: #ef4444; }
-
-    /* 统计摘要 */
-    .stats {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
-      margin-bottom: 20px; padding: 16px;
-      background: #1e293b; border-radius: 12px; border: 1px solid #293548;
-    }
-    .stat-item { text-align: center; }
-    .stat-label { display: block; color: #64748b; font-size: 0.72rem; margin-bottom: 4px; }
-    .stat-value { font-size: 0.95rem; font-weight: 600; color: #e2e8f0; }
-    .stat-value.up { color: #22c55e; }
-    .stat-value.down { color: #ef4444; }
-    .stat-value small { color: #64748b; font-weight: 400; margin-left: 4px; }
+    /* 价格卡片网格 - 覆盖组件内部布局 */
+    :global(.cards) { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
 
     /* 图表区域 */
     .chart-section { margin-bottom: 24px; }
@@ -306,31 +93,16 @@ const wasteData = JSON.stringify(prices.map(p => +(p.wastePrNd / 10000).toFixed(
     .tab.active { background: #334155; color: #e2e8f0; border-color: #475569; }
     #chart { background: #1e293b; border-radius: 14px; border: 1px solid #293548; padding: 8px; }
 
-    /* 表格 */
+    /* 表格区域 */
     .table-section { margin-bottom: 24px; }
     .table-section h2 { font-size: 1rem; margin-bottom: 12px; }
-    .table-wrap { overflow-x: auto; max-height: 480px; overflow-y: auto; border-radius: 12px; border: 1px solid #293548; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-    th {
-      background: #1e293b; padding: 10px 14px; text-align: center;
-      position: sticky; top: 0; z-index: 1; color: #94a3b8; font-weight: 500;
-      border-bottom: 1px solid #293548;
-    }
-    th small { font-weight: 400; color: #475569; }
-    td { padding: 9px 14px; border-bottom: 1px solid #1e293b; text-align: center; font-variant-numeric: tabular-nums; }
-    td:first-child { color: #94a3b8; text-align: left; }
-    td small { margin-left: 4px; font-size: 0.7rem; }
-    .price-up { color: #22c55e; }
-    .price-down { color: #ef4444; }
-    tbody tr:hover { background: rgba(30,41,59,0.5); }
 
     /* 页脚 */
     footer { text-align: center; color: #475569; font-size: 0.75rem; padding: 20px 0; border-top: 1px solid #1e293b; margin-top: 8px; }
 
     /* 响应式 */
     @media (max-width: 640px) {
-      .cards { grid-template-columns: 1fr; }
-      .stats { grid-template-columns: repeat(2, 1fr); }
+      :global(.cards) { grid-template-columns: 1fr; }
       .card-value { font-size: 1.5rem; }
       .section-header { flex-direction: column; gap: 8px; align-items: flex-start; }
     }

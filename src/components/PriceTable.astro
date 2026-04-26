@@ -1,0 +1,72 @@
+---
+import { fmtYuan, fmtDate } from '../utils/format';
+
+interface PriceEntry {
+  date: string;
+  metalPrNd: number;
+  oxidePrNd: number;
+  wastePrNd: number;
+}
+
+interface Props {
+  prices: PriceEntry[];
+}
+
+const { prices } = Astro.props;
+const reversed = [...prices].reverse();
+---
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>日期</th>
+        <th>金属镨钕<br/><small>元/吨</small></th>
+        <th>氧化镨钕<br/><small>元/吨</small></th>
+        <th>废料镨钕<br/><small>元/吨</small></th>
+      </tr>
+    </thead>
+    <tbody>
+      {reversed.map((p, i) => {
+        const next = reversed[i + 1];
+        const mChg = next ? p.metalPrNd - next.metalPrNd : 0;
+        const oChg = next ? p.oxidePrNd - next.oxidePrNd : 0;
+        const wChg = next ? p.wastePrNd - next.wastePrNd : 0;
+        return (
+          <tr>
+            <td>{fmtDate(p.date)}</td>
+            <td class:list={[mChg > 0 ? 'price-up' : mChg < 0 ? 'price-down' : '']}>
+              {fmtYuan(p.metalPrNd)}
+              {mChg !== 0 && <small> {mChg > 0 ? '↑' : '↓'}{Math.abs(mChg).toLocaleString('zh-CN')}</small>}
+            </td>
+            <td class:list={[oChg > 0 ? 'price-up' : oChg < 0 ? 'price-down' : '']}>
+              {fmtYuan(p.oxidePrNd)}
+              {oChg !== 0 && <small> {oChg > 0 ? '↑' : '↓'}{Math.abs(oChg).toLocaleString('zh-CN')}</small>}
+            </td>
+            <td class:list={[wChg > 0 ? 'price-up' : wChg < 0 ? 'price-down' : '']}>
+              {fmtYuan(p.wastePrNd)}
+              {wChg !== 0 && <small> {wChg > 0 ? '↑' : '↓'}{Math.abs(wChg).toLocaleString('zh-CN')}</small>}
+            </td>
+          </tr>
+        );
+      })}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .table-wrap { overflow-x: auto; max-height: 480px; overflow-y: auto; border-radius: 12px; border: 1px solid #293548; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th {
+    background: #1e293b; padding: 10px 14px; text-align: center;
+    position: sticky; top: 0; z-index: 1; color: #94a3b8; font-weight: 500;
+    border-bottom: 1px solid #293548;
+  }
+  th small { font-weight: 400; color: #475569; }
+  td { padding: 9px 14px; border-bottom: 1px solid #1e293b; text-align: center; font-variant-numeric: tabular-nums; }
+  td:first-child { color: #94a3b8; text-align: left; }
+  td small { margin-left: 4px; font-size: 0.7rem; }
+  .price-up { color: #22c55e; }
+  .price-down { color: #ef4444; }
+  tbody tr:hover { background: rgba(30,41,59,0.5); }
+</style>

@@ -1,9 +1,19 @@
 ---
 interface Props {
   title: string;
+  description?: string;
+  canonicalUrl?: string;
+  ogImage?: string;
 }
 
-const { title } = Astro.props;
+const {
+  title,
+  description = '稀土镨钕价格监控系统 - 实时追踪金属镨钕、氧化镨钕、废料镨钕价格走势',
+  canonicalUrl,
+  ogImage,
+} = Astro.props;
+
+const siteName = '镨钕价格监控系统';
 ---
 
 <!doctype html>
@@ -11,12 +21,33 @@ const { title } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="稀土镨钕价格监控系统 - 实时追踪金属镨钕、氧化镨钕、废料镨钕价格走势" />
     <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="keywords" content="镨钕价格,稀土价格,金属镨钕,氧化镨钕,废料镨钕,稀土行情,PrNd price" />
+    <meta name="author" content="huzhen" />
+    <link rel="canonical" href={canonicalUrl} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:locale" content="zh_CN" />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+
+    <!-- 结构化数据 JSON-LD -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": siteName,
+      "description": description,
+      "url": canonicalUrl,
+    })} />
+
     <style is:global>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
         background: #0f172a;
         color: #e2e8f0;
         min-height: 100vh;
@@ -24,5 +55,7 @@ const { title } = Astro.props;
       a { color: #38bdf8; text-decoration: none; }
     </style>
   </head>
-  <slot />
+  <body>
+    <slot />
+  </body>
 </html>
