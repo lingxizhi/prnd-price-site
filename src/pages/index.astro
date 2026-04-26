@@ -88,7 +88,7 @@ const wasteData = JSON.stringify(prices.map(p => p.wastePrNd));
     </footer>
   </div>
 
-  <script is:inline src="/echarts.min.js"></script>
+  <script is:inline src="https://cdn.staticfile.net/echarts/5.5.1/echarts.min.js"></script>
   <script is:inline define:vars={{ dates, metalData, oxideData, wasteData }}>
     document.addEventListener('DOMContentLoaded', function() {
       if (typeof echarts === 'undefined') {
