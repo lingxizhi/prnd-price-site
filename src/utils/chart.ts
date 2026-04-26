@@ -1,7 +1,11 @@
 /**
  * ECharts 价格走势图模块
- * 独立模块，避免内联重复，单次加载 ECharts
+ * - 动态加载 ECharts CDN（仅一次）
+ * - 带 SRI 完整性校验
  */
+
+const ECHARTS_CDN = 'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js';
+const ECHARTS_SRI = 'sha384-Mx5lkUEQPM1pOJCwFtUICyX45KNojXbkWdYhkKUKsbv391mavbfoAmONbzkgYPzR';
 
 interface ChartData {
   dates: string[];
@@ -10,26 +14,25 @@ interface ChartData {
   waste: number[];
 }
 
-let echartsLoaded = false;
 let echartsLib: any = null;
+let loadPromise: Promise<any> | null = null;
 
-/** 加载 ECharts（仅一次） */
-async function loadECharts(): Promise<any> {
-  if (echartsLib) return echartsLib;
-  if (echartsLoaded) {
-    // 等待上一个加载完成
-    return new Promise<any>((resolve) => {
-      const check = () => {
-        if (echartsLib) return resolve(echartsLib);
-        setTimeout(check, 50);
-      };
-      check();
-    });
-  }
-  echartsLoaded = true;
-  return new Promise((resolve, reject) => {
+/** 加载 ECharts（单例，带 SRI） */
+function loadECharts(): Promise<any> {
+  if (echartsLib) return Promise.resolve(echartsLib);
+  if (loadPromise) return loadPromise;
+
+  loadPromise = new Promise((resolve, reject) => {
+    // 检查是否已由其他方式加载
+    if ((window as any).echarts) {
+      echartsLib = (window as any).echarts;
+      return resolve(echartsLib);
+    }
+
     const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js';
+    script.src = ECHARTS_CDN;
+    script.integrity = ECHARTS_SRI;
+    script.crossOrigin = 'anonymous';
     script.onload = () => {
       echartsLib = (window as any).echarts;
       resolve(echartsLib);
@@ -37,6 +40,8 @@ async function loadECharts(): Promise<any> {
     script.onerror = () => reject(new Error('ECharts CDN load failed'));
     document.head.appendChild(script);
   });
+
+  return loadPromise;
 }
 
 function buildOption(echarts: any, data: ChartData) {

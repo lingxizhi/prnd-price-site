@@ -1,12 +1,10 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import PriceCard from '../components/PriceCard.astro';
+import PriceCardGrid from '../components/PriceCardGrid.astro';
 import StatsBar from '../components/StatsBar.astro';
 import PriceTable from '../components/PriceTable.astro';
 import prices from '../data/prices.json';
 import { fmtDate } from '../utils/format';
-
-const SITE_URL = 'https://prnd-price-site.vercel.app';
 
 const latest = prices[prices.length - 1];
 const prev = prices.length > 1 ? prices[prices.length - 2] : latest;
@@ -23,7 +21,6 @@ const chartData = {
 <Layout
   title="镨钕价格监控系统 - 稀土PrNd实时行情"
   description="实时追踪金属镨钕、氧化镨钕、废料镨钕价格走势，覆盖2025年12月至今全部工作日数据。"
-  canonicalUrl={SITE_URL}
 >
   <div class="container">
     <header>
@@ -31,10 +28,7 @@ const chartData = {
       <p class="subtitle">PrNd Price Monitoring System · 最近更新 {fmtDate(latest.date)}</p>
     </header>
 
-    <PriceCard label="金属镨钕" price={latest.metalPrNd} prevPrice={prev.metalPrNd} />
-    <PriceCard label="氧化镨钕" price={latest.oxidePrNd} prevPrice={prev.oxidePrNd} />
-    <PriceCard label="废料镨钕" price={latest.wastePrNd} prevPrice={prev.wastePrNd} />
-
+    <PriceCardGrid latest={latest} prev={prev} />
     <StatsBar prices={prices} />
 
     <section class="chart-section">
@@ -59,14 +53,18 @@ const chartData = {
     </footer>
   </div>
 
+  <!-- 数据注入（先于消费方） -->
+  <script type="application/json" id="chart-data" set:html={JSON.stringify(chartData)} />
+
+  <!-- 图表初始化（读取上方 chart-data） -->
   <script>
     import { initChart } from '../utils/chart';
-    const chartData = JSON.parse(document.getElementById('chart-data')!.textContent!);
-    initChart('chart', chartData);
+    const el = document.getElementById('chart-data');
+    if (el) {
+      const chartData = JSON.parse(el.textContent!);
+      initChart('chart', chartData);
+    }
   </script>
-
-  <!-- 图表数据注入（SSR输出，客户端读取） -->
-  <script type="application/json" id="chart-data" set:html={JSON.stringify(chartData)} />
 
   <style>
     .container { max-width: 960px; margin: 0 auto; padding: 20px 16px; }
@@ -75,9 +73,6 @@ const chartData = {
     header { text-align: center; margin-bottom: 28px; }
     header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: 1px; }
     .subtitle { color: #64748b; margin-top: 6px; font-size: 0.85rem; }
-
-    /* 价格卡片网格 - 覆盖组件内部布局 */
-    :global(.cards) { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
 
     /* 图表区域 */
     .chart-section { margin-bottom: 24px; }
@@ -102,8 +97,6 @@ const chartData = {
 
     /* 响应式 */
     @media (max-width: 640px) {
-      :global(.cards) { grid-template-columns: 1fr; }
-      .card-value { font-size: 1.5rem; }
       .section-header { flex-direction: column; gap: 8px; align-items: flex-start; }
     }
   </style>

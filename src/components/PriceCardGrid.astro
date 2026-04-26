@@ -1,0 +1,30 @@
+---
+import PriceCard from './PriceCard.astro';
+
+interface PriceEntry {
+  date: string;
+  metalPrNd: number;
+  oxidePrNd: number;
+  wastePrNd: number;
+}
+
+interface Props {
+  latest: PriceEntry;
+  prev: PriceEntry;
+}
+
+const { latest, prev } = Astro.props;
+---
+
+<section class="cards">
+  <PriceCard label="金属镨钕" price={latest.metalPrNd} prevPrice={prev.metalPrNd} />
+  <PriceCard label="氧化镨钕" price={latest.oxidePrNd} prevPrice={prev.oxidePrNd} />
+  <PriceCard label="废料镨钕" price={latest.wastePrNd} prevPrice={prev.wastePrNd} />
+</section>
+
+<style>
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+  @media (max-width: 640px) {
+    .cards { grid-template-columns: 1fr; }
+  }
+</style>
