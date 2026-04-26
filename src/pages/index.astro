@@ -5,9 +5,9 @@ import prices from '../data/prices.json';
 const latest = prices[prices.length - 1];
 const prev = prices.length > 1 ? prices[prices.length - 2] : latest;
 
-// 万元/吨 显示
-function wan(n: number) {
-  return (n / 10000).toFixed(2);
+// 元/吨 显示
+function fmtYuan(n: number) {
+  return n.toLocaleString('zh-CN');
 }
 
 function change(cur: number, old: number) {
@@ -19,6 +19,10 @@ function change(cur: number, old: number) {
 const metalChg = change(latest.metalPrNd, prev.metalPrNd);
 const oxideChg = change(latest.oxidePrNd, prev.oxidePrNd);
 const wasteChg = change(latest.wastePrNd, prev.wastePrNd);
+
+function fmtChg(diff: number) {
+  return (diff >= 0 ? '+' : '') + diff.toLocaleString('zh-CN');
+}
 
 // 统计信息
 const metalPrices = prices.map(p => p.metalPrNd);
@@ -45,23 +49,23 @@ const wasteData = JSON.stringify(prices.map(p => +(p.wastePrNd / 10000).toFixed(
     <section class="cards">
       <div class="card">
         <div class="card-label">金属镨钕</div>
-        <div class="card-value">{wan(latest.metalPrNd)}<span class="unit">万元/吨</span></div>
+        <div class="card-value">{fmtYuan(latest.metalPrNd)}<span class="unit">元/吨</span></div>
         <div class:list={['card-change', metalChg.up ? 'up' : 'down']}>
-          {metalChg.up ? '↑' : '↓'} {Math.abs(metalChg.diff).toFixed(2)}万 ({metalChg.pct}%)
+          {fmtChg(metalChg.diff)}元 ({metalChg.pct}%)
         </div>
       </div>
       <div class="card">
         <div class="card-label">氧化镨钕</div>
-        <div class="card-value">{wan(latest.oxidePrNd)}<span class="unit">万元/吨</span></div>
+        <div class="card-value">{fmtYuan(latest.oxidePrNd)}<span class="unit">元/吨</span></div>
         <div class:list={['card-change', oxideChg.up ? 'up' : 'down']}>
-          {oxideChg.up ? '↑' : '↓'} {Math.abs(oxideChg.diff).toFixed(2)}万 ({oxideChg.pct}%)
+          {fmtChg(oxideChg.diff)}元 ({oxideChg.pct}%)
         </div>
       </div>
       <div class="card">
         <div class="card-label">废料镨钕</div>
-        <div class="card-value">{wan(latest.wastePrNd)}<span class="unit">万元/吨</span></div>
+        <div class="card-value">{fmtYuan(latest.wastePrNd)}<span class="unit">元/吨</span></div>
         <div class:list={['card-change', wasteChg.up ? 'up' : 'down']}>
-          {wasteChg.up ? '↑' : '↓'} {Math.abs(wasteChg.diff).toFixed(2)}万 ({wasteChg.pct}%)
+          {fmtChg(wasteChg.diff)}元 ({wasteChg.pct}%)
         </div>
       </div>
     </section>
@@ -74,11 +78,11 @@ const wasteData = JSON.stringify(prices.map(p => +(p.wastePrNd / 10000).toFixed(
       </div>
       <div class="stat-item">
         <span class="stat-label">最高价（金属镨钕）</span>
-        <span class="stat-value up">{wan(metalMax)}万 <small>{metalMaxDate}</small></span>
+        <span class="stat-value up">{fmtYuan(metalMax)}元 <small>{metalMaxDate}</small></span>
       </div>
       <div class="stat-item">
         <span class="stat-label">最低价（金属镨钕）</span>
-        <span class="stat-value down">{wan(metalMin)}万 <small>{metalMinDate}</small></span>
+        <span class="stat-value down">{fmtYuan(metalMin)}元 <small>{metalMinDate}</small></span>
       </div>
       <div class="stat-item">
         <span class="stat-label">累计涨幅</span>
@@ -109,9 +113,9 @@ const wasteData = JSON.stringify(prices.map(p => +(p.wastePrNd / 10000).toFixed(
           <thead>
             <tr>
               <th>日期</th>
-              <th>金属镨钕<br/><small>万元/吨</small></th>
-              <th>氧化镨钕<br/><small>万元/吨</small></th>
-              <th>废料镨钕<br/><small>万元/吨</small></th>
+              <th>金属镨钕<br/><small>元/吨</small></th>
+              <th>氧化镨钕<br/><small>元/吨</small></th>
+              <th>废料镨钕<br/><small>元/吨</small></th>
             </tr>
           </thead>
           <tbody>
@@ -124,16 +128,16 @@ const wasteData = JSON.stringify(prices.map(p => +(p.wastePrNd / 10000).toFixed(
                 <tr>
                   <td>{p.date}</td>
                   <td class:list={[mChg > 0 ? 'price-up' : mChg < 0 ? 'price-down' : '']}>
-                    {wan(p.metalPrNd)}
-                    {mChg !== 0 && <small>{mChg > 0 ? '↑' : '↓'}{Math.abs(mChg / 10000).toFixed(2)}</small>}
+                    {fmtYuan(p.metalPrNd)}
+                    {mChg !== 0 && <small>{mChg > 0 ? '↑' : '↓'}{Math.abs(mChg).toLocaleString('zh-CN')}</small>}
                   </td>
                   <td class:list={[oChg > 0 ? 'price-up' : oChg < 0 ? 'price-down' : '']}>
-                    {wan(p.oxidePrNd)}
-                    {oChg !== 0 && <small>{oChg > 0 ? '↑' : '↓'}{Math.abs(oChg / 10000).toFixed(2)}</small>}
+                    {fmtYuan(p.oxidePrNd)}
+                    {oChg !== 0 && <small>{oChg > 0 ? '↑' : '↓'}{Math.abs(oChg).toLocaleString('zh-CN')}</small>}
                   </td>
                   <td class:list={[wChg > 0 ? 'price-up' : wChg < 0 ? 'price-down' : '']}>
-                    {wan(p.wastePrNd)}
-                    {wChg !== 0 && <small>{wChg > 0 ? '↑' : '↓'}{Math.abs(wChg / 10000).toFixed(2)}</small>}
+                    {fmtYuan(p.wastePrNd)}
+                    {wChg !== 0 && <small>{wChg > 0 ? '↑' : '↓'}{Math.abs(wChg).toLocaleString('zh-CN')}</small>}
                   </td>
                 </tr>
               );
@@ -173,7 +177,7 @@ const wasteData = JSON.stringify(prices.map(p => +(p.wastePrNd / 10000).toFixed(
             formatter: function(params) {
               let s = '<b>' + params[0].axisValue + '</b><br/>';
               params.forEach(p => {
-                s += p.marker + ' ' + p.seriesName + '：<b>' + p.value.toFixed(2) + '</b> 万元/吨<br/>';
+                s += p.marker + ' ' + p.seriesName + '：<b>' + p.value.toLocaleString() + '</b> 元/吨<br/>>';
               });
               return s;
             }
@@ -190,7 +194,7 @@ const wasteData = JSON.stringify(prices.map(p => +(p.wastePrNd / 10000).toFixed(
             axisTick: { show: false }
           },
           yAxis: {
-            type: 'value', name: '万元/吨',
+            type: 'value', name: '元/吨',
             nameTextStyle: { color: '#64748b', fontSize: 11 },
             axisLabel: { color: '#64748b', fontSize: 11 },
             splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } }
