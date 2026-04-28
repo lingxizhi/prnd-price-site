@@ -12,15 +12,21 @@ interface Props {
   prices: PriceEntry[];
 }
 
-const { prices } = Astro.props;
+const { prices = [] } = Astro.props;
+
+if (!prices || prices.length === 0) {
+  return null;
+}
 
 const latest = prices[prices.length - 1];
-const metalPrices = prices.map(p => p.metalPrNd);
+const metalPrices = prices.map(p => p.metalPrNd || 0);
 const metalMax = Math.max(...metalPrices);
 const metalMin = Math.min(...metalPrices);
-const metalMaxDate = prices[metalPrices.indexOf(metalMax)].date;
-const metalMinDate = prices[metalPrices.indexOf(metalMin)].date;
-const totalChange = ((latest.metalPrNd - prices[0].metalPrNd) / prices[0].metalPrNd * 100).toFixed(1);
+const metalMaxIdx = metalPrices.indexOf(metalMax);
+const metalMinIdx = metalPrices.indexOf(metalMin);
+const metalMaxDate = prices[metalMaxIdx >= 0 ? metalMaxIdx : 0].date;
+const metalMinDate = prices[metalMinIdx >= 0 ? metalMinIdx : 0].date;
+const totalChange = prices[0].metalPrNd ? ((latest.metalPrNd - prices[0].metalPrNd) / prices[0].metalPrNd * 100).toFixed(1) : '0';
 const isUp = latest.metalPrNd >= prices[0].metalPrNd;
 ---
 
