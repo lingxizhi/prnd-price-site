@@ -17,23 +17,6 @@ interface ChartData {
 let echartsLib: any = null;
 let loadPromise: Promise<any> | null = null;
 
-/** 计算移动平均线 */
-function calculateMA(dayCount: number, data: number[]) {
-  const result = [];
-  for (let i = 0, len = data.length; i < len; i++) {
-    if (i < dayCount - 1) {
-      result.push('-');
-      continue;
-    }
-    let sum = 0;
-    for (let j = 0; j < dayCount; j++) {
-      sum += data[i - j];
-    }
-    result.push(Number((sum / dayCount).toFixed(0)));
-  }
-  return result;
-}
-
 /** 加载 ECharts（单例，带 SRI） */
 function loadECharts(): Promise<any> {
   if (echartsLib) return Promise.resolve(echartsLib);
@@ -79,6 +62,12 @@ function buildOption(echarts: any, data: ChartData) {
 
   return {
     backgroundColor: 'transparent',
+    title: {
+      text: '', // 由事件动态更新
+      right: 20,
+      top: 5,
+      textStyle: { color: '#f8fafc', fontSize: 13, fontWeight: 'bold' }
+    },
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -99,20 +88,35 @@ function buildOption(echarts: any, data: ChartData) {
       }
     },
     legend: {
-      data: ['金属镨钕', '氧化镨钕', '废料镨钕', '氧化镨钕 MA5', '氧化镨钕 MA10'],
-      top: 0, 
-      textStyle: { color: '#94a3b8', fontSize: 11 },
+      data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
+      top: 5, 
+      left: 75,
+      textStyle: { color: '#94a3b8', fontSize: 12 },
       selected: {
-        '氧化镨钕 MA5': false,
-        '氧化镨钕 MA10': false
+        '氧化镨钕': false,
+        '废料镨钕': false
       }
     },
     // 为底部 dataZoom 留出空间
-    grid: { left: 75, right: 30, top: 45, bottom: 45 },
-    // DataZoom 缩放控制条
+    grid: { left: 75, right: 30, top: 45, bottom: 50 },
+    // DataZoom 缩放控制条，优化拖动滑块的显示效果
     dataZoom: [
       { type: 'inside', start: 0, end: 100 },
-      { type: 'slider', show: true, bottom: 5, height: 16, borderColor: '#334155', textStyle: { color: '#64748b' } }
+      { 
+        type: 'slider', 
+        show: true, 
+        bottom: 5, 
+        height: 20, 
+        borderColor: '#334155', 
+        textStyle: { color: '#f8fafc', fontSize: 13, fontWeight: 'bold' },
+        handleSize: '120%',
+        handleStyle: { color: '#94a3b8', shadowBlur: 3, shadowColor: 'rgba(0,0,0,0.5)', shadowOffsetX: 1, shadowOffsetY: 1 },
+        fillerColor: 'rgba(148,163,184,0.2)', // 选中范围的填充色
+        dataBackground: {
+          lineStyle: { color: '#475569' },
+          areaStyle: { color: '#1e293b' }
+        }
+      }
     ],
     xAxis: {
       type: 'category', data: dates, boundaryGap: false,
@@ -127,7 +131,8 @@ function buildOption(echarts: any, data: ChartData) {
         color: '#64748b', fontSize: 11,
         formatter: (v: number) => (v / 10000).toFixed(0) + '万'
       },
-      splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } }
+      splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+      scale: true // 允许 Y 轴不从 0 开始
     },
     series: [
       {
@@ -165,17 +170,6 @@ function buildOption(echarts: any, data: ChartData) {
           { offset: 0, color: 'rgba(167,139,250,0.15)' },
           { offset: 1, color: 'rgba(167,139,250,0)' }
         ])}
-      },
-      // 增加的 MA 均线（默认隐藏，点击图例可开启）
-      {
-        name: '氧化镨钕 MA5', type: 'line', data: calculateMA(5, oxide), smooth: true,
-        lineStyle: { width: 1.5, type: 'dashed', color: '#fbbf24' },
-        itemStyle: { color: '#fbbf24' }, symbol: 'none'
-      },
-      {
-        name: '氧化镨钕 MA10', type: 'line', data: calculateMA(10, oxide), smooth: true,
-        lineStyle: { width: 1.5, type: 'dashed', color: '#ef4444' },
-        itemStyle: { color: '#ef4444' }, symbol: 'none'
       }
     ]
   };
@@ -191,6 +185,34 @@ export async function initChart(containerId: string, rawData: ChartData) {
     const chart = echarts.init(container, 'dark');
     chart.setOption(buildOption(echarts, rawData));
 
+    // 动态更新右上角显示的当前日期区间
+    const updateTitleDateRange = () => {
+      const opt = chart.getOption();
+      if (!opt.dataZoom || !opt.dataZoom.length) return;
+      const dz = opt.dataZoom[0]; // inside的
+      const len = rawData.dates.length;
+      let startIdx = 0, endIdx = len - 1;
+      if (dz.startValue !== undefined && dz.endValue !== undefined) {
+        startIdx = Math.max(0, dz.startValue);
+        endIdx = Math.min(len - 1, dz.endValue);
+      } else {
+        startIdx = Math.floor((dz.start || 0) / 100 * (len - 1));
+        endIdx = Math.ceil((dz.end || 100) / 100 * (len - 1));
+      }
+      const sDate = rawData.dates[startIdx];
+      const eDate = rawData.dates[endIdx];
+      chart.setOption({
+        title: {
+          text: `区间: ${sDate} 至 ${eDate}`
+        }
+      });
+    };
+
+    // 监听缩放事件更新标题
+    chart.on('dataZoom', updateTitleDateRange);
+    // 初始化时调用一次
+    updateTitleDateRange();
+
     // 时间范围切换
     document.querySelectorAll('.chart-tabs .tab').forEach((btn) => {
       (btn as HTMLElement).addEventListener('click', function () {
@@ -199,6 +221,7 @@ export async function initChart(containerId: string, rawData: ChartData) {
         const range = this.dataset.range;
         if (range === 'all') {
           chart.setOption(buildOption(echarts, rawData), true);
+          updateTitleDateRange();
         } else {
           const days = parseInt(range);
           const startIdx = Math.max(0, rawData.dates.length - days);
@@ -209,6 +232,7 @@ export async function initChart(containerId: string, rawData: ChartData) {
             waste: rawData.waste.slice(startIdx),
           };
           chart.setOption(buildOption(echarts, sliced), true);
+          updateTitleDateRange();
         }
       });
     });
