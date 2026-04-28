@@ -49,9 +49,9 @@
   },
   {
     "date": "2025-09-08",
-    "metal_prnd": 722500,
-    "oxide_prnd": 581000,
-    "scrap_prnd": 555000
+    "metalPrNd": 722500,
+    "oxidePrNd": 581000,
+    "wastePrNd": 555000
   },
   {
     "date": "2025-09-09",
