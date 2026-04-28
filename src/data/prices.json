@@ -1,5 +1,11 @@
 [
   {
+    "date": "2025-06-03",
+    "metalPrNd": 537500,
+    "oxidePrNd": 438000,
+    "wastePrNd": 430000
+  },
+  {
     "date": "2025-07-01",
     "metalPrNd": 643000,
     "oxidePrNd": 530000,
