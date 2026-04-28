@@ -29,7 +29,6 @@ const chartData = {
     </header>
 
     <PriceCardGrid latest={latest} prev={prev} />
-    <StatsBar prices={prices} />
 
     <section class="chart-section">
       <div class="section-header">
@@ -46,6 +45,9 @@ const chartData = {
     <section class="table-section">
       <h2>📋 历史数据</h2>
       <PriceTable prices={prices} />
+      <div style="margin-top: 16px;">
+        <StatsBar prices={prices} />
+      </div>
     </section>
 
     <footer>

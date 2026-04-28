@@ -157,6 +157,8 @@ export async function initChart(containerId: string, rawData: ChartData) {
     // 初始化配置
     chart.setOption(buildOption(rawData));
 
+    let isTabClicking = false;
+
     // 动态更新底部的当前日期区间
     const updateTitleDateRange = () => {
       const opt = chart.getOption();
@@ -180,12 +182,19 @@ export async function initChart(containerId: string, rawData: ChartData) {
       });
     };
 
-    chart.on('dataZoom', updateTitleDateRange);
+    chart.on('dataZoom', () => {
+      updateTitleDateRange();
+      // 如果不是点击按钮触发的，而是用户手动拖动/缩放，则取消所有按钮的激活状态
+      if (!isTabClicking) {
+        document.querySelectorAll('.chart-tabs .tab').forEach(b => b.classList.remove('active'));
+      }
+    });
     updateTitleDateRange();
 
     // 时间范围切换
     document.querySelectorAll('.chart-tabs .tab').forEach((btn) => {
       (btn as HTMLElement).addEventListener('click', function () {
+        isTabClicking = true;
         document.querySelectorAll('.chart-tabs .tab').forEach(b => b.classList.remove('active'));
         this.classList.add('active');
         const range = this.dataset.range;
@@ -200,7 +209,10 @@ export async function initChart(containerId: string, rawData: ChartData) {
           chart.dispatchAction({ type: 'dataZoom', start: startPct, end: 100 });
         }
         // 触发 action 后不会自动调回调，需手动更新一次 title
-        setTimeout(updateTitleDateRange, 50); 
+        setTimeout(() => {
+          updateTitleDateRange();
+          isTabClicking = false;
+        }, 50); 
       });
     });
 
