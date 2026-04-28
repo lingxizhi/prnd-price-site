@@ -54,6 +54,12 @@
     "scrap_prnd": 555000
   },
   {
+    "date": "2025-09-09",
+    "metalPrNd": 712500,
+    "oxidePrNd": 570000,
+    "wastePrNd": 545000
+  },
+  {
     "date": "2025-10-09",
     "metalPrNd": 690000,
     "oxidePrNd": 583000,
