@@ -6,10 +6,214 @@
     "wastePrNd": 377500
   },
   {
+    "date": "2025-01-03",
+    "metalPrNd": 486500,
+    "oxidePrNd": 397000,
+    "wastePrNd": 377500
+  },
+  {
+    "date": "2025-01-06",
+    "metalPrNd": 492500,
+    "oxidePrNd": 401000,
+    "wastePrNd": 385000
+  },
+  {
+    "date": "2025-01-07",
+    "metalPrNd": 492500,
+    "oxidePrNd": 401000,
+    "wastePrNd": 385000
+  },
+  {
+    "date": "2025-01-08",
+    "metalPrNd": 491500,
+    "oxidePrNd": 400000,
+    "wastePrNd": 385000
+  },
+  {
+    "date": "2025-01-09",
+    "metalPrNd": 490500,
+    "oxidePrNd": 399000,
+    "wastePrNd": 385000
+  },
+  {
+    "date": "2025-01-10",
+    "metalPrNd": 492500,
+    "oxidePrNd": 400000,
+    "wastePrNd": 387500
+  },
+  {
+    "date": "2025-01-13",
+    "metalPrNd": 497500,
+    "oxidePrNd": 403000,
+    "wastePrNd": 390000
+  },
+  {
+    "date": "2025-01-14",
+    "metalPrNd": 500500,
+    "oxidePrNd": 406000,
+    "wastePrNd": 397500
+  },
+  {
+    "date": "2025-01-15",
+    "metalPrNd": 502500,
+    "oxidePrNd": 409000,
+    "wastePrNd": 400000
+  },
+  {
+    "date": "2025-01-16",
+    "metalPrNd": 507500,
+    "oxidePrNd": 412000,
+    "wastePrNd": 402500
+  },
+  {
+    "date": "2025-01-17",
+    "metalPrNd": 507500,
+    "oxidePrNd": 409000,
+    "wastePrNd": 400000
+  },
+  {
+    "date": "2025-01-20",
+    "metalPrNd": 507500,
+    "oxidePrNd": 409000,
+    "wastePrNd": 400000
+  },
+  {
+    "date": "2025-01-21",
+    "metalPrNd": 507500,
+    "oxidePrNd": 415000,
+    "wastePrNd": 405000
+  },
+  {
+    "date": "2025-01-22",
+    "metalPrNd": 512500,
+    "oxidePrNd": 416000,
+    "wastePrNd": 405000
+  },
+  {
+    "date": "2025-01-23",
+    "metalPrNd": 512500,
+    "oxidePrNd": 416000,
+    "wastePrNd": 405000
+  },
+  {
+    "date": "2025-01-24",
+    "metalPrNd": 512500,
+    "oxidePrNd": 416000,
+    "wastePrNd": 405000
+  },
+  {
+    "date": "2025-01-27",
+    "metalPrNd": 512500,
+    "oxidePrNd": 416000,
+    "wastePrNd": 405000
+  },
+  {
     "date": "2025-02-05",
     "metalPrNd": 517500,
     "oxidePrNd": 420000,
     "wastePrNd": 410000
+  },
+  {
+    "date": "2025-02-06",
+    "metalPrNd": 517500,
+    "oxidePrNd": 420000,
+    "wastePrNd": 410000
+  },
+  {
+    "date": "2025-02-07",
+    "metalPrNd": 524500,
+    "oxidePrNd": 426000,
+    "wastePrNd": 417500
+  },
+  {
+    "date": "2025-02-10",
+    "metalPrNd": 542500,
+    "oxidePrNd": 439000,
+    "wastePrNd": 420000
+  },
+  {
+    "date": "2025-02-11",
+    "metalPrNd": 537500,
+    "oxidePrNd": 431000,
+    "wastePrNd": 420000
+  },
+  {
+    "date": "2025-02-12",
+    "metalPrNd": 537500,
+    "oxidePrNd": 436000,
+    "wastePrNd": 425000
+  },
+  {
+    "date": "2025-02-13",
+    "metalPrNd": 537500,
+    "oxidePrNd": 434000,
+    "wastePrNd": 425000
+  },
+  {
+    "date": "2025-02-14",
+    "metalPrNd": 537500,
+    "oxidePrNd": 434000,
+    "wastePrNd": 425000
+  },
+  {
+    "date": "2025-02-17",
+    "metalPrNd": 535500,
+    "oxidePrNd": 433000,
+    "wastePrNd": 425000
+  },
+  {
+    "date": "2025-02-18",
+    "metalPrNd": 534500,
+    "oxidePrNd": 434000,
+    "wastePrNd": 425000
+  },
+  {
+    "date": "2025-02-19",
+    "metalPrNd": 532500,
+    "oxidePrNd": 434000,
+    "wastePrNd": 422500
+  },
+  {
+    "date": "2025-02-20",
+    "metalPrNd": 547500,
+    "oxidePrNd": 445000,
+    "wastePrNd": 435000
+  },
+  {
+    "date": "2025-02-21",
+    "metalPrNd": 544500,
+    "oxidePrNd": 442000,
+    "wastePrNd": 430000
+  },
+  {
+    "date": "2025-02-24",
+    "metalPrNd": 550500,
+    "oxidePrNd": 449000,
+    "wastePrNd": 437500
+  },
+  {
+    "date": "2025-02-25",
+    "metalPrNd": 549500,
+    "oxidePrNd": 449000,
+    "wastePrNd": 437500
+  },
+  {
+    "date": "2025-02-26",
+    "metalPrNd": 550500,
+    "oxidePrNd": 449000,
+    "wastePrNd": 440000
+  },
+  {
+    "date": "2025-02-27",
+    "metalPrNd": 547500,
+    "oxidePrNd": 449000,
+    "wastePrNd": 440000
+  },
+  {
+    "date": "2025-02-28",
+    "metalPrNd": 545500,
+    "oxidePrNd": 444000,
+    "wastePrNd": 437500
   },
   {
     "date": "2025-03-03",
