@@ -91,10 +91,6 @@ function buildOption(data: ChartData) {
     grid: { left: 75, right: 30, top: 45, bottom: 65 },
     dataZoom: [
       { 
-        type: 'inside',
-        zoomLock: true // 锁定缩放：主图表区仅允许拖动平移，防止移动端手势误判导致单指变缩放
-      },
-      { 
         type: 'slider', 
         show: true, 
         bottom: 25, 
