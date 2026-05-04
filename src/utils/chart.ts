@@ -90,7 +90,10 @@ function buildOption(data: ChartData) {
     // grid bottom 调大，给 dataZoom(35高) + title(15高) 留出至少 60 的空间
     grid: { left: 75, right: 30, top: 45, bottom: 65 },
     dataZoom: [
-      { type: 'inside' },
+      { 
+        type: 'inside',
+        zoomLock: true // 锁定缩放：主图表区仅允许拖动平移，防止移动端手势误判导致单指变缩放
+      },
       { 
         type: 'slider', 
         show: true, 
