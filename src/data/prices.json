@@ -22,9 +22,10 @@
   },
   {
     "date": "2024.12.02",
-    "metalPrNd": 507500,
-    "oxidePrNd": 413000,
-    "wastePrNd": 395000
+    "metal_prnd": 507500,
+    "oxide_prnd": 413000,
+    "waste_prnd": 395000,
+    "url": "https://mp.weixin.qq.com/s/jx-GzLpgDApyA-eZwHF5hA"
   },
   {
     "date": "2024.12.30",
