@@ -1,31 +1,27 @@
 [
   {
     "date": "2024.11.01",
-    "metal_prnd": 520500,
-    "oxide_prnd": 423000,
-    "waste_prnd": 405000,
-    "url": "https://mp.weixin.qq.com/s/m2iPtL2CwExftpajjqx1XA"
+    "metalPrNd": 520500,
+    "oxidePrNd": 423000,
+    "wastePrNd": 405000
   },
   {
     "date": "2024.11.15",
-    "metal_prnd": 519500,
-    "oxide_prnd": 420000,
-    "waste_prnd": 405000,
-    "url": "https://mp.weixin.qq.com/s/XhMUND5cqIKescjhklPROA"
+    "metalPrNd": 519500,
+    "oxidePrNd": 420000,
+    "wastePrNd": 405000
   },
   {
     "date": "2024.11.29",
-    "metal_prnd": 507500,
-    "oxide_prnd": 413000,
-    "waste_prnd": 395000,
-    "url": "https://mp.weixin.qq.com/s/qN1F_YvS54_tFalevFKDjQ"
+    "metalPrNd": 507500,
+    "oxidePrNd": 413000,
+    "wastePrNd": 395000
   },
   {
     "date": "2024.12.02",
-    "metal_prnd": 507500,
-    "oxide_prnd": 413000,
-    "waste_prnd": 395000,
-    "url": "https://mp.weixin.qq.com/s/jx-GzLpgDApyA-eZwHF5hA"
+    "metalPrNd": 507500,
+    "oxidePrNd": 413000,
+    "wastePrNd": 395000
   },
   {
     "date": "2024.12.30",
