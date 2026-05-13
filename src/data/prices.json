@@ -1996,5 +1996,17 @@
     "metalPrNd": 925000,
     "oxidePrNd": 757500,
     "wastePrNd": 755000
+  },
+  {
+    "date": "2026-05-12",
+    "metalPrNd": 922500,
+    "oxidePrNd": 756000,
+    "wastePrNd": 760000
+  },
+  {
+    "date": "2026-05-13",
+    "metalPrNd": 905000,
+    "oxidePrNd": 737500,
+    "wastePrNd": 740000
   }
 ]
