@@ -1,5 +1,35 @@
 [
   {
+    "date": "2024-01-02",
+    "metalPrNd": 542500,
+    "oxidePrNd": 442500,
+    "wastePrNd": 0
+  },
+  {
+    "date": "2024-01-03",
+    "metalPrNd": 532500,
+    "oxidePrNd": 432500,
+    "wastePrNd": 0
+  },
+  {
+    "date": "2024-01-04",
+    "metalPrNd": 527500,
+    "oxidePrNd": 422500,
+    "wastePrNd": 0
+  },
+  {
+    "date": "2024-01-05",
+    "metalPrNd": 522500,
+    "oxidePrNd": 422500,
+    "wastePrNd": 0
+  },
+  {
+    "date": "2024-01-08",
+    "metalPrNd": 517500,
+    "oxidePrNd": 417500,
+    "wastePrNd": 0
+  },
+  {
     "date": "2024-01-22",
     "metalPrNd": 492500,
     "oxidePrNd": 400500,
