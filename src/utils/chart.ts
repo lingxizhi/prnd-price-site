@@ -311,9 +311,22 @@ export async function initChart(containerId: string, rawData: ChartData, compare
         if (range === 'all') {
           chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
         } else {
-          const days = parseInt(range);
-          // 计算 30/90 天在整个时间轴上占的百分比，以此推算 start
-          const startPct = Math.max(0, 100 - (days / Math.max(1, len - 1)) * 100);
+          const calDays = parseInt(range);
+          // 按自然日计算：从最新日期往前找 calDays 天内的数据
+          const parseDateStr = (s: string) => {
+            const [y, m, d] = s.split('.').map(Number);
+            return new Date(y, m - 1, d).getTime();
+          };
+          const latestMs = parseDateStr(rawData.dates[len - 1]);
+          const msPerDay = 86400000;
+          let startIdx = 0;
+          for (let i = len - 1; i >= 0; i--) {
+            if ((latestMs - parseDateStr(rawData.dates[i])) / msPerDay > calDays) {
+              startIdx = i + 1;
+              break;
+            }
+          }
+          const startPct = Math.max(0, (startIdx / Math.max(1, len - 1)) * 100);
           chart.dispatchAction({ type: 'dataZoom', start: startPct, end: 100 });
         }
         // 触发 action 后不会自动调回调，需手动更新一次 title
