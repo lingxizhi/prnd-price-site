@@ -1,14 +1,26 @@
 ---
-import { fmtYuan, fmtDate, fmtDateShort, calcChange, fmtChgYuan } from '../utils/format';
+import { fmtYuan, calcChange, fmtChgYuan } from '../utils/format';
 
 interface Props {
   label: string;
   price: number;
   prevPrice: number;
+  prevPrice7: number;
+  prevPrice30: number;
+  ytdPrice: number;
 }
 
-const { label, price, prevPrice } = Astro.props;
+const { label, price, prevPrice, prevPrice7, prevPrice30, ytdPrice } = Astro.props;
 const chg = calcChange(price, prevPrice);
+const chg7 = calcChange(price, prevPrice7);
+const chg30 = calcChange(price, prevPrice30);
+const chgY = calcChange(price, ytdPrice);
+
+function chgBadge(c: { diff: number; pct: string; up: boolean }, prefix: string) {
+  const arrow = c.up ? '↑' : '↓';
+  const cls = c.up ? 'up' : 'down';
+  return `<span class="${cls}">${prefix} ${arrow}${Math.abs(parseFloat(c.pct))}%</span>`;
+}
 ---
 
 <div class="card">
@@ -16,6 +28,13 @@ const chg = calcChange(price, prevPrice);
   <div class="card-value">{fmtYuan(price)}<span class="unit">元/吨</span></div>
   <div class:list={['card-change', chg.up ? 'up' : 'down']}>
     {fmtChgYuan(chg.diff)}元 ({chg.pct}%)
+  </div>
+  <div class="card-multi">
+    <span class:list={['mini-chg', chg7.up ? 'up' : 'down']}>7日 {chg7.up ? '↑' : '↓'}{Math.abs(parseFloat(chg7.pct))}%</span>
+    <span class="mini-div">|</span>
+    <span class:list={['mini-chg', chg30.up ? 'up' : 'down']}>30日 {chg30.up ? '↑' : '↓'}{Math.abs(parseFloat(chg30.pct))}%</span>
+    <span class="mini-div">|</span>
+    <span class:list={['mini-chg', chgY.up ? 'up' : 'down']}>年初 {chgY.up ? '↑' : '↓'}{Math.abs(parseFloat(chgY.pct))}%</span>
   </div>
 </div>
 
@@ -32,4 +51,9 @@ const chg = calcChange(price, prevPrice);
   .card-change { font-size: 0.8rem; margin-top: 8px; font-weight: 500; }
   .card-change.up { color: #ef4444; }
   .card-change.down { color: #22c55e; }
+  .card-multi { margin-top: 8px; font-size: 0.7rem; display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+  .mini-chg { font-weight: 450; }
+  .mini-chg.up { color: #ef4444; }
+  .mini-chg.down { color: #22c55e; }
+  .mini-div { color: #334155; }
 </style>

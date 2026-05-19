@@ -2,6 +2,7 @@
  * ECharts 价格走势图模块
  * - 动态加载 ECharts CDN（仅一次）
  * - 带 SRI 完整性校验
+ * - 支持趋势图与年份对比图切换
  */
 
 const ECHARTS_CDN = 'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js';
@@ -12,6 +13,14 @@ interface ChartData {
   metal: number[];
   oxide: number[];
   waste: number[];
+}
+
+interface CompareData {
+  labels: string[];
+  years: string[];
+  metal: number[][];
+  oxide: number[][];
+  waste: number[][];
 }
 
 let echartsLib: any = null;
@@ -39,6 +48,79 @@ function loadECharts(): Promise<any> {
     document.head.appendChild(script);
   });
   return loadPromise;
+}
+
+/** 构建年份对比图配置 */
+function buildCompareOption(data: CompareData) {
+  const { labels, years, metal } = data;
+  // 年份配色
+  const colors = ['#f97316', '#38bdf8', '#a78bfa', '#22c55e', '#ef4444', '#eab308'];
+  
+  const series = years.map((year, i) => ({
+    name: `${year}年`,
+    type: 'line' as const,
+    data: metal[i],
+    smooth: true,
+    symbol: 'circle',
+    symbolSize: 2,
+    showSymbol: false,
+    lineStyle: { width: 2.5, color: colors[i % colors.length] },
+    itemStyle: { color: colors[i % colors.length] },
+  }));
+
+  return {
+    backgroundColor: 'transparent',
+    title: {
+      text: `金属镨钕 年份对比`,
+      bottom: -5,
+      left: 'center',
+      textStyle: { color: '#94a3b8', fontSize: 12, fontWeight: 'normal' }
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(15,23,42,0.95)',
+      borderColor: '#334155',
+      textStyle: { color: '#e2e8f0', fontSize: 13 },
+      formatter(params: any[]) {
+        let s = `<b>${params[0].axisValue}</b><br/>`;
+        for (const p of params) {
+          if (p.value !== null && p.value !== undefined && p.value !== '-') {
+            s += `${p.marker} ${p.seriesName}：<b>${Number(p.value).toLocaleString()}</b> 元/吨<br/>`;
+          }
+        }
+        return s;
+      }
+    },
+    legend: {
+      data: series.map(s => s.name),
+      top: 5,
+      left: 'center',
+      textStyle: { color: '#94a3b8', fontSize: 12 },
+      selected: years.reduce((acc, y, i) => {
+        // 默认只显示最近两年
+        acc[`${y}年`] = i >= years.length - 2;
+        return acc;
+      }, {} as Record<string, boolean>)
+    },
+    grid: { left: 75, right: 30, top: 45, bottom: 45 },
+    xAxis: {
+      type: 'category',
+      data: labels,
+      boundaryGap: false,
+      axisLabel: { rotate: 0, fontSize: 10, color: '#64748b', interval: Math.max(1, Math.floor(labels.length / 12)) },
+      axisLine: { lineStyle: { color: '#1e293b' } },
+      axisTick: { show: false }
+    },
+    yAxis: {
+      type: 'value',
+      name: '元/吨',
+      nameTextStyle: { color: '#64748b', fontSize: 11 },
+      axisLabel: { color: '#64748b', fontSize: 11, formatter: (v: number) => (v / 10000).toFixed(0) + '万' },
+      splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+      scale: true
+    },
+    series
+  };
 }
 
 function buildOption(data: ChartData) {
@@ -145,7 +227,7 @@ function buildOption(data: ChartData) {
   };
 }
 
-export async function initChart(containerId: string, rawData: ChartData) {
+export async function initChart(containerId: string, rawData: ChartData, compareData?: CompareData | null) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
@@ -156,7 +238,23 @@ export async function initChart(containerId: string, rawData: ChartData) {
     // 初始化配置
     chart.setOption(buildOption(rawData));
 
+    let currentMode: 'trend' | 'compare' = 'trend';
     let isTabClicking = false;
+
+    // 年份对比模式
+    function switchToCompare() {
+      if (!compareData) return;
+      currentMode = 'compare';
+      chart.clear();
+      chart.setOption(buildCompareOption(compareData), true);
+    }
+
+    function switchToTrend() {
+      currentMode = 'trend';
+      chart.clear();
+      chart.setOption(buildOption(rawData), true);
+      updateTitleDateRange();
+    }
 
     // 动态更新底部的当前日期区间
     const updateTitleDateRange = () => {
@@ -198,6 +296,17 @@ export async function initChart(containerId: string, rawData: ChartData) {
         this.classList.add('active');
         const range = this.dataset.range;
         const len = rawData.dates.length;
+
+        if (range === 'compare') {
+          switchToCompare();
+          isTabClicking = false;
+          return;
+        }
+
+        // 如果当前在对比模式，先切回趋势
+        if (currentMode === 'compare') {
+          switchToTrend();
+        }
         
         if (range === 'all') {
           chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });

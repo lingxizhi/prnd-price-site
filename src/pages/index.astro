@@ -4,10 +4,22 @@ import PriceCardGrid from '../components/PriceCardGrid.astro';
 import StatsBar from '../components/StatsBar.astro';
 import PriceTable from '../components/PriceTable.astro';
 import prices from '../data/prices.json';
-import { fmtDate } from '../utils/format';
+import { fmtDate, calcChange } from '../utils/format';
 
-const latest = prices[prices.length - 1];
-const prev = prices.length > 1 ? prices[prices.length - 2] : latest;
+const len = prices.length;
+const latest = prices[len - 1];
+const prev = len > 1 ? prices[len - 2] : latest;
+
+// 多维度涨跌幅：7个数据点前 / 30个数据点前 / 年初至今
+const prev7 = len > 7 ? prices[len - 8] : prices[0];
+const prev30 = len > 30 ? prices[len - 31] : prices[0];
+const ytdIndex = prices.findIndex(p => p.date.startsWith('2026'));
+const ytd = ytdIndex >= 0 ? prices[ytdIndex] : prices[0];
+
+// 计算多维度涨跌（金属镨钕）
+const chg7d = calcChange(latest.metalPrNd, prev7.metalPrNd);
+const chg30d = calcChange(latest.metalPrNd, prev30.metalPrNd);
+const chgYtd = calcChange(latest.metalPrNd, ytd.metalPrNd);
 
 // 图表数据：日期格式化为展示格式，价格保持原始元/吨
 const chartData = {
@@ -15,6 +27,25 @@ const chartData = {
   metal: prices.map(p => p.metalPrNd),
   oxide: prices.map(p => p.oxidePrNd),
   waste: prices.map(p => p.wastePrNd),
+};
+
+// 年份对比数据
+const yearGroups: Record<string, { monthDay: string; metal: number; oxide: number; waste: number }[]> = {};
+prices.forEach(p => {
+  const [y, m, d] = p.date.split('-');
+  if (!yearGroups[y]) yearGroups[y] = [];
+  yearGroups[y].push({ monthDay: `${parseInt(m)}/${parseInt(d)}`, metal: p.metalPrNd, oxide: p.oxidePrNd, waste: p.wastePrNd });
+});
+const yearKeys = Object.keys(yearGroups).sort();
+// 用最近一年的日期做对齐基准
+const refYear = yearKeys[yearKeys.length - 1];
+const compareLabels = yearGroups[refYear].map(p => p.monthDay);
+const compareData = {
+  labels: compareLabels,
+  years: yearKeys,
+  metal: yearKeys.map(y => yearGroups[y].map(p => p.metal)),
+  oxide: yearKeys.map(y => yearGroups[y].map(p => p.oxide)),
+  waste: yearKeys.map(y => yearGroups[y].map(p => p.waste)),
 };
 ---
 
@@ -28,7 +59,7 @@ const chartData = {
       <p class="subtitle">PrNd Price Monitoring System · 最近更新 {fmtDate(latest.date)}</p>
     </header>
 
-    <PriceCardGrid latest={latest} prev={prev} />
+    <PriceCardGrid latest={latest} prev={prev} prev7={prev7} prev30={prev30} ytd={ytd} />
 
     <section class="chart-section">
       <div class="section-header">
@@ -37,6 +68,7 @@ const chartData = {
           <button class="tab active" data-range="all">全部</button>
           <button class="tab" data-range="30">近30天</button>
           <button class="tab" data-range="90">近90天</button>
+          <button class="tab" data-range="compare">年份对比</button>
         </div>
       </div>
       <div id="chart" style="width:100%;height:420px;"></div>
@@ -57,14 +89,17 @@ const chartData = {
 
   <!-- 数据注入（先于消费方） -->
   <script type="application/json" id="chart-data" set:html={JSON.stringify(chartData)} />
+  <script type="application/json" id="compare-data" set:html={JSON.stringify(compareData)} />
 
   <!-- 图表初始化（读取上方 chart-data） -->
   <script>
     import { initChart } from '../utils/chart';
     const el = document.getElementById('chart-data');
+    const compareEl = document.getElementById('compare-data');
     if (el) {
       const chartData = JSON.parse(el.textContent!);
-      initChart('chart', chartData);
+      const compareData = compareEl ? JSON.parse(compareEl.textContent!) : null;
+      initChart('chart', chartData, compareData);
     }
   </script>
 

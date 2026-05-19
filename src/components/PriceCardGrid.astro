@@ -11,15 +11,18 @@ interface PriceEntry {
 interface Props {
   latest: PriceEntry;
   prev: PriceEntry;
+  prev7: PriceEntry;
+  prev30: PriceEntry;
+  ytd: PriceEntry;
 }
 
-const { latest, prev } = Astro.props;
+const { latest, prev, prev7, prev30, ytd } = Astro.props;
 ---
 
 <section class="cards">
-  <PriceCard label="金属镨钕" price={latest.metalPrNd} prevPrice={prev.metalPrNd} />
-  <PriceCard label="氧化镨钕" price={latest.oxidePrNd} prevPrice={prev.oxidePrNd} />
-  <PriceCard label="废料镨钕" price={latest.wastePrNd} prevPrice={prev.wastePrNd} />
+  <PriceCard label="金属镨钕" price={latest.metalPrNd} prevPrice={prev.metalPrNd} prevPrice7={prev7.metalPrNd} prevPrice30={prev30.metalPrNd} ytdPrice={ytd.metalPrNd} />
+  <PriceCard label="氧化镨钕" price={latest.oxidePrNd} prevPrice={prev.oxidePrNd} prevPrice7={prev7.oxidePrNd} prevPrice30={prev30.oxidePrNd} ytdPrice={ytd.oxidePrNd} />
+  <PriceCard label="废料镨钕" price={latest.wastePrNd} prevPrice={prev.wastePrNd} prevPrice7={prev7.wastePrNd} prevPrice30={prev30.wastePrNd} ytdPrice={ytd.wastePrNd} />
 </section>
 
 <style>
