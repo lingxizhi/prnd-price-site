@@ -78,6 +78,7 @@ function buildCompareOption(data: CompareData) {
     },
     tooltip: {
       trigger: 'axis',
+      confine: true, // 防移动端溢出
       backgroundColor: 'rgba(15,23,42,0.95)',
       borderColor: '#334155',
       textStyle: { color: '#e2e8f0', fontSize: 13 },
@@ -95,6 +96,7 @@ function buildCompareOption(data: CompareData) {
       data: series.map(s => s.name),
       top: 5,
       left: 'center',
+      type: 'scroll', // 移动端多图例滚动
       textStyle: { color: '#94a3b8', fontSize: 12 },
       selected: years.reduce((acc, y, i) => {
         // 默认只显示最近两年
@@ -119,7 +121,21 @@ function buildCompareOption(data: CompareData) {
       splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
       scale: true
     },
-    series
+    series,
+    media: [
+      {
+        query: { maxWidth: 500 }, // 小屏专属优化
+        option: {
+          grid: { left: 55, right: 15, top: 40, bottom: 45 },
+          xAxis: { axisLabel: { fontSize: 9 } }
+        }
+      },
+      {
+        option: {
+          grid: { left: 75, right: 30, top: 45, bottom: 45 }
+        }
+      }
+    ]
   };
 }
 
@@ -148,6 +164,7 @@ function buildOption(data: ChartData) {
     },
     tooltip: {
       trigger: 'axis',
+      confine: true, // 防移动端溢出
       axisPointer: { type: 'cross', label: { backgroundColor: '#1e293b' } },
       backgroundColor: 'rgba(15,23,42,0.95)',
       borderColor: '#334155',
@@ -169,8 +186,6 @@ function buildOption(data: ChartData) {
       textStyle: { color: '#94a3b8', fontSize: 12 },
       selected: { '氧化镨钕': false, '废料镨钕': false }
     },
-    // grid bottom 调大，给 dataZoom(35高) + title(15高) 留出至少 60 的空间
-    grid: { left: 75, right: 30, top: 45, bottom: 65 },
     dataZoom: [
       { 
         type: 'slider', 
@@ -190,7 +205,7 @@ function buildOption(data: ChartData) {
     ],
     xAxis: {
       type: 'category', data: dates, boundaryGap: false,
-      axisLabel: { rotate: 30, fontSize: 10, color: '#64748b' },
+      axisLabel: { rotate: 30, fontSize: 10, color: '#64748b', hideOverlap: true },
       axisLine: { lineStyle: { color: '#1e293b' } },
       axisTick: { show: false }
     },
@@ -222,6 +237,19 @@ function buildOption(data: ChartData) {
         lineStyle: { width: 2.5, color: '#a78bfa' }, itemStyle: { color: '#a78bfa' },
         markPoint: markPointConfig, markLine: markLineConfig,
         areaStyle: { color: new (window as any).echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(167,139,250,0.15)' }, { offset: 1, color: 'rgba(167,139,250,0)' }])}
+      }
+    ],
+    media: [
+      {
+        query: { maxWidth: 500 }, // 小屏专属优化
+        option: {
+          grid: { left: 55, right: 10, top: 45, bottom: 65 }
+        }
+      },
+      {
+        option: {
+          grid: { left: 75, right: 30, top: 45, bottom: 65 }
+        }
       }
     ]
   };

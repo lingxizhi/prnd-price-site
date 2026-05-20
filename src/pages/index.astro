@@ -72,7 +72,7 @@ const compareData = {
           <button class="tab" data-range="compare">年份对比</button>
         </div>
       </div>
-      <div id="chart" style="width:100%;height:420px;"></div>
+      <div id="chart" class="responsive-chart"></div>
     </section>
 
     <section class="table-section">
@@ -124,7 +124,9 @@ const compareData = {
     }
     .tab:hover { border-color: #475569; }
     .tab.active { background: #334155; color: #e2e8f0; border-color: #475569; }
-    #chart { background: #1e293b; border-radius: 14px; border: 1px solid #293548; padding: 8px; }
+    
+    .responsive-chart { width: 100%; height: 480px; }
+    #chart { background: #1e293b; border-radius: 14px; border: 1px solid #293548; padding: 8px; box-sizing: border-box; }
 
     /* 表格区域 */
     .table-section { margin-bottom: 24px; }
@@ -136,6 +138,7 @@ const compareData = {
     /* 响应式 */
     @media (max-width: 640px) {
       .section-header { flex-direction: column; gap: 8px; align-items: flex-start; }
+      .responsive-chart { height: 60vh; min-height: 380px; }
     }
   </style>
 </Layout>
