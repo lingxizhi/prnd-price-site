@@ -468,6 +468,12 @@
     "wastePrNd": 0
   },
   {
+    "date": "2024-04-28",
+    "metalPrNd": 497500,
+    "oxidePrNd": 402000,
+    "wastePrNd": 0
+  },
+  {
     "date": "2024-04-29",
     "metalPrNd": 500500,
     "oxidePrNd": 402000,
@@ -620,6 +626,12 @@
   {
     "date": "2024-06-05",
     "metalPrNd": 449500,
+    "oxidePrNd": 365500,
+    "wastePrNd": 0
+  },
+  {
+    "date": "2024-06-06",
+    "metalPrNd": 452500,
     "oxidePrNd": 365500,
     "wastePrNd": 0
   },
