@@ -1596,6 +1596,12 @@
     "wastePrNd": 405000
   },
   {
+    "date": "2025-01-26",
+    "metalPrNd": 512500,
+    "oxidePrNd": 416000,
+    "wastePrNd": 405000
+  },
+  {
     "date": "2025-01-27",
     "metalPrNd": 512500,
     "oxidePrNd": 416000,
@@ -1618,6 +1624,12 @@
     "metalPrNd": 524500,
     "oxidePrNd": 426000,
     "wastePrNd": 417500
+  },
+  {
+    "date": "2025-02-08",
+    "metalPrNd": 530500,
+    "oxidePrNd": 432000,
+    "wastePrNd": 420000
   },
   {
     "date": "2025-02-10",
@@ -1942,6 +1954,12 @@
     "metalPrNd": 500500,
     "oxidePrNd": 406000,
     "wastePrNd": 387500
+  },
+  {
+    "date": "2025-04-27",
+    "metalPrNd": 497500,
+    "oxidePrNd": 409000,
+    "wastePrNd": 390500
   },
   {
     "date": "2025-04-28",
@@ -2436,6 +2454,12 @@
     "wastePrNd": 590000
   },
   {
+    "date": "2025-08-26",
+    "metalPrNd": 747500,
+    "oxidePrNd": 612500,
+    "wastePrNd": 590000
+  },
+  {
     "date": "2025-08-27",
     "metalPrNd": 747500,
     "oxidePrNd": 607500,
@@ -2571,6 +2595,12 @@
     "date": "2025-09-26",
     "metalPrNd": 687000,
     "oxidePrNd": 560000,
+    "wastePrNd": 580000
+  },
+  {
+    "date": "2025-09-28",
+    "metalPrNd": 682500,
+    "oxidePrNd": 559000,
     "wastePrNd": 580000
   },
   {
