@@ -696,6 +696,12 @@
     "wastePrNd": 0
   },
   {
+    "date": "2024-06-24",
+    "metalPrNd": 447500,
+    "oxidePrNd": 362500,
+    "wastePrNd": 0
+  },
+  {
     "date": "2024-06-25",
     "metalPrNd": 447500,
     "oxidePrNd": 362500,
@@ -819,6 +825,12 @@
     "date": "2024-07-23",
     "metalPrNd": 445500,
     "oxidePrNd": 361500,
+    "wastePrNd": 0
+  },
+  {
+    "date": "2024-07-24",
+    "metalPrNd": 447500,
+    "oxidePrNd": 362500,
     "wastePrNd": 0
   },
   {
