@@ -44,8 +44,8 @@ const compactCards = [
 ---
 
 <Layout
-  title="镨钕价格监控系统 - 稀土PrNd实时行情"
-  description="实时追踪金属镨钕、氧化镨钕、废料镨钕价格走势，覆盖2025年12月至今全部工作日数据。"
+  title="镨钕价格监控"
+  description="镨钕价格监控 - 实时追踪金属镨钕、氧化镨钕、废料镨钕价格走势"
 >
   <!-- 应用容器（用于旋转） -->
   <div class="app" id="app">
@@ -55,9 +55,10 @@ const compactCards = [
     <!-- 顶部悬浮信息条（毛玻璃） -->
     <div class="overlay-top">
       <div class="overlay-brand">
-        <span class="brand-title">📊 镨钕价格</span>
+        <span class="brand-title">镨钕价格</span>
       </div>
       <div class="overlay-cards">
+        <span class="mini-date">{fmtDate(latest.date)}</span>
         {compactCards.map(c => {
           const chg = calcChange(c.price, c.prevPrice);
           const chg7 = calcChange(c.price, c.prevPrice7);
@@ -91,12 +92,11 @@ const compactCards = [
             </div>
           );
         })}
-        <span class="mini-date">{fmtDate(latest.date)}</span>
       </div>
       <div class="chart-tabs">
-        <button class="tab active" data-range="all">全部</button>
+        <button class="tab" data-range="all">全部</button>
         <button class="tab" data-range="7">7天</button>
-        <button class="tab" data-range="30">30天</button>
+        <button class="tab active" data-range="30">30天</button>
         <button class="tab" data-range="90">90天</button>
         <button class="tab" data-range="compare">对比</button>
       </div>
@@ -210,8 +210,8 @@ const compactCards = [
       display: flex;
       align-items: center;
       padding: 3px 8px;
-      border-left: 1px solid rgba(51, 65, 85, 0.4);
-      margin-left: 2px;
+      border-right: 1px solid rgba(51, 65, 85, 0.4);
+      margin-right: 2px;
       white-space: nowrap;
     }
 
@@ -383,7 +383,7 @@ const compactCards = [
       .mini-value { font-size: 0.72rem; }
       .tab { padding: 3px 6px; font-size: 0.62rem; }
       .overlay-bottom { font-size: 0.6rem; bottom: 8px; right: 10px; }
-      .mini-date { font-size: 0.58rem; padding: 2px 4px; border-left: none; margin-left: 2px; }
+      .mini-date { font-size: 0.58rem; padding: 2px 4px; border-right: none; margin-right: 0; }
       .rotate-btn { bottom: 32px; right: 8px; width: 30px; height: 30px; font-size: 1rem; }
     }
   </style>

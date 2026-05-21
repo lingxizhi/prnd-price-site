@@ -362,6 +362,12 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     });
 
     window.addEventListener('resize', () => chart.resize());
+
+    // 默认展示近30天
+    setTimeout(() => {
+      const btn30 = document.querySelector('.chart-tabs .tab[data-range="30"]');
+      if (btn30) (btn30 as HTMLElement).click();
+    }, 80);
   } catch (err) {
     console.error(err);
     container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:60px;">图表加载失败，请刷新页面重试</p>';
