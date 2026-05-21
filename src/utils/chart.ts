@@ -165,7 +165,7 @@ function buildOption(data: ChartData) {
     tooltip: {
       trigger: 'axis',
       confine: true, // 防移动端溢出
-      axisPointer: { type: 'cross', label: { backgroundColor: '#1e293b' } },
+      axisPointer: { type: 'line', label: { backgroundColor: '#1e293b' } },
       backgroundColor: 'rgba(15,23,42,0.95)',
       borderColor: '#334155',
       textStyle: { color: '#e2e8f0', fontSize: 13 },
