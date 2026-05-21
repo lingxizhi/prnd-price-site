@@ -1,25 +1,17 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import PriceCardGrid from '../components/PriceCardGrid.astro';
 import prices from '../data/prices.json';
-import { fmtDate, calcChange } from '../utils/format';
+import { fmtDate, fmtYuan, calcChange } from '../utils/format';
 
 const len = prices.length;
 const latest = prices[len - 1];
 const prev = len > 1 ? prices[len - 2] : latest;
 
-// 多维度涨跌幅：7个数据点前 / 30个数据点前 / 年初至今
 const prev7 = len > 7 ? prices[len - 8] : prices[0];
 const prev30 = len > 30 ? prices[len - 31] : prices[0];
 const ytdIndex = prices.findIndex(p => p.date.startsWith('2026'));
 const ytd = ytdIndex >= 0 ? prices[ytdIndex] : prices[0];
 
-// 计算多维度涨跌（金属镨钕）
-const chg7d = calcChange(latest.metalPrNd, prev7.metalPrNd);
-const chg30d = calcChange(latest.metalPrNd, prev30.metalPrNd);
-const chgYtd = calcChange(latest.metalPrNd, ytd.metalPrNd);
-
-// 图表数据：日期格式化为展示格式，价格保持原始元/吨
 const chartData = {
   dates: prices.map(p => fmtDate(p.date)),
   metal: prices.map(p => p.metalPrNd),
@@ -27,7 +19,6 @@ const chartData = {
   waste: prices.map(p => p.wastePrNd),
 };
 
-// 年份对比数据
 const yearGroups: Record<string, { monthDay: string; metal: number; oxide: number; waste: number }[]> = {};
 prices.forEach(p => {
   const [y, m, d] = p.date.split('-');
@@ -35,7 +26,6 @@ prices.forEach(p => {
   yearGroups[y].push({ monthDay: `${parseInt(m)}/${parseInt(d)}`, metal: p.metalPrNd, oxide: p.oxidePrNd, waste: p.wastePrNd });
 });
 const yearKeys = Object.keys(yearGroups).sort();
-// 用最近一年的日期做对齐基准
 const refYear = yearKeys[yearKeys.length - 1];
 const compareLabels = yearGroups[refYear].map(p => p.monthDay);
 const compareData = {
@@ -45,44 +35,60 @@ const compareData = {
   oxide: yearKeys.map(y => yearGroups[y].map(p => p.oxide)),
   waste: yearKeys.map(y => yearGroups[y].map(p => p.waste)),
 };
+
+const compactCards = [
+  { label: '金属镨钕', price: latest.metalPrNd, prevPrice: prev.metalPrNd },
+  { label: '氧化镨钕', price: latest.oxidePrNd, prevPrice: prev.oxidePrNd },
+  { label: '废料镨钕', price: latest.wastePrNd, prevPrice: prev.wastePrNd },
+];
 ---
 
 <Layout
   title="镨钕价格监控系统 - 稀土PrNd实时行情"
   description="实时追踪金属镨钕、氧化镨钕、废料镨钕价格走势，覆盖2025年12月至今全部工作日数据。"
 >
-  <div class="container">
-    <header>
-      <h1>📊 镨钕价格监控系统</h1>
-      <p class="subtitle">PrNd Price Monitoring System · 最近更新 {fmtDate(latest.date)}</p>
-    </header>
+  <!-- 全屏图表层 -->
+  <div id="chart" class="full-chart"></div>
 
-    <PriceCardGrid latest={latest} prev={prev} prev7={prev7} prev30={prev30} ytd={ytd} />
-
-    <section class="chart-section">
-      <div class="section-header">
-        <h2>📈 价格走势</h2>
-        <div class="chart-tabs">
-          <button class="tab active" data-range="all">全部</button>
-          <button class="tab" data-range="7">近7天</button>
-          <button class="tab" data-range="30">近30天</button>
-          <button class="tab" data-range="90">近90天</button>
-          <button class="tab" data-range="compare">年份对比</button>
-        </div>
-      </div>
-      <div id="chart" class="responsive-chart"></div>
-    </section>
-
-    <footer>
-      <p>数据来源：稀土行业公众号 · 每工作日更新 · 共 {prices.length} 条记录</p>
-    </footer>
+  <!-- 顶部悬浮信息条（毛玻璃） -->
+  <div class="overlay-top">
+    <div class="overlay-brand">
+      <span class="brand-title">📊 镨钕价格</span>
+      <span class="brand-date">{fmtDate(latest.date)}</span>
+    </div>
+    <div class="overlay-cards">
+      {compactCards.map(c => {
+        const chg = calcChange(c.price, c.prevPrice);
+        return (
+          <div class="mini-card">
+            <span class="mini-label">{c.label}</span>
+            <span class="mini-value">{fmtYuan(c.price)}</span>
+            <span class:list={['mini-chg', chg.up ? 'up' : 'down']}>
+              {chg.up ? '↑' : '↓'}{Math.abs(parseFloat(chg.pct))}%
+            </span>
+          </div>
+        );
+      })}
+    </div>
+    <div class="chart-tabs">
+      <button class="tab active" data-range="all">全部</button>
+      <button class="tab" data-range="7">7天</button>
+      <button class="tab" data-range="30">30天</button>
+      <button class="tab" data-range="90">90天</button>
+      <button class="tab" data-range="compare">对比</button>
+    </div>
   </div>
 
-  <!-- 数据注入（先于消费方） -->
+  <!-- 右下角数据来源 -->
+  <div class="overlay-bottom">
+    数据来源：稀土行业公众号 · 共 {prices.length} 条记录
+  </div>
+
+  <!-- 数据注入 -->
   <script type="application/json" id="chart-data" set:html={JSON.stringify(chartData)} />
   <script type="application/json" id="compare-data" set:html={JSON.stringify(compareData)} />
 
-  <!-- 图表初始化（读取上方 chart-data） -->
+  <!-- 图表初始化 -->
   <script>
     import { initChart } from '../utils/chart';
     const el = document.getElementById('chart-data');
@@ -95,36 +101,157 @@ const compareData = {
   </script>
 
   <style>
-    .container { max-width: 960px; margin: 0 auto; padding: 20px 16px; }
+    /* 防止页面滚动 */
+    :global(body) { overflow: hidden; margin: 0; padding: 0; }
 
-    /* 头部 */
-    header { text-align: center; margin-bottom: 28px; }
-    header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: 1px; }
-    .subtitle { color: #64748b; margin-top: 6px; font-size: 0.85rem; }
-
-    /* 图表区域 */
-    .chart-section { margin-bottom: 24px; }
-    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .section-header h2 { font-size: 1rem; }
-    .chart-tabs { display: flex; gap: 6px; }
-    .tab {
-      padding: 4px 12px; border-radius: 6px; border: 1px solid #334155;
-      background: transparent; color: #94a3b8; font-size: 0.75rem; cursor: pointer;
-      transition: all 0.2s;
+    /* 全屏图表 */
+    .full-chart {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #0f172a;
     }
-    .tab:hover { border-color: #475569; }
-    .tab.active { background: #334155; color: #e2e8f0; border-color: #475569; }
-    
-    .responsive-chart { width: 100%; height: 480px; }
-    #chart { background: #1e293b; border-radius: 14px; border: 1px solid #293548; padding: 8px; box-sizing: border-box; }
 
-    /* 页脚 */
-    footer { text-align: center; color: #475569; font-size: 0.75rem; padding: 20px 0; border-top: 1px solid #1e293b; margin-top: 8px; }
+    /* ── 顶部悬浮条 ── */
+    .overlay-top {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 14px;
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(51, 65, 85, 0.45);
+      flex-wrap: wrap;
+    }
+    .overlay-brand {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .brand-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #e2e8f0;
+    }
+    .brand-date {
+      font-size: 0.68rem;
+      color: #64748b;
+    }
+    .overlay-cards {
+      display: flex;
+      gap: 8px;
+      flex: 1;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
 
-    /* 响应式 */
-    @media (max-width: 640px) {
-      .section-header { flex-direction: column; gap: 8px; align-items: flex-start; }
-      .responsive-chart { height: 60vh; min-height: 380px; }
+    /* 紧凑价格卡片 */
+    .mini-card {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      background: rgba(30, 41, 59, 0.55);
+      border: 1px solid rgba(51, 65, 85, 0.35);
+      white-space: nowrap;
+    }
+    .mini-label { font-size: 0.68rem; color: #94a3b8; }
+    .mini-value {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      font-variant-numeric: tabular-nums;
+    }
+    .mini-chg { font-size: 0.66rem; font-weight: 600; }
+    .mini-chg.up { color: #ef4444; }
+    .mini-chg.down { color: #22c55e; }
+
+    /* 时间切换 */
+    .chart-tabs {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .tab {
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: 1px solid rgba(51, 65, 85, 0.55);
+      background: rgba(30, 41, 59, 0.5);
+      color: #94a3b8;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .tab:hover { border-color: #64748b; color: #e2e8f0; }
+    .tab.active {
+      background: #334155;
+      color: #e2e8f0;
+      border-color: #475569;
+    }
+
+    /* 右下角信息 */
+    .overlay-bottom {
+      position: fixed;
+      bottom: 10px;
+      right: 16px;
+      z-index: 100;
+      font-size: 0.66rem;
+      color: rgba(100, 116, 139, 0.6);
+      pointer-events: none;
+    }
+
+    /* ── 响应式 ── */
+    @media (max-width: 768px) {
+      .overlay-top {
+        gap: 8px;
+        padding: 6px 10px;
+      }
+      .overlay-cards {
+        order: 3;
+        width: 100%;
+        justify-content: center;
+        gap: 6px;
+      }
+      .chart-tabs {
+        order: 2;
+        margin-left: auto;
+      }
+      .mini-card {
+        padding: 2px 7px;
+      }
+      .mini-label { font-size: 0.64rem; }
+      .mini-value { font-size: 0.76rem; }
+      .mini-chg { font-size: 0.62rem; }
+      .tab {
+        padding: 3px 7px;
+        font-size: 0.65rem;
+      }
+      .brand-title { font-size: 0.82rem; }
+    }
+
+    @media (max-width: 480px) {
+      .overlay-top {
+        padding: 6px 8px;
+        gap: 4px;
+      }
+      .overlay-cards { gap: 4px; }
+      .mini-card { padding: 2px 5px; gap: 3px; }
+      .mini-label { font-size: 0.6rem; }
+      .mini-value { font-size: 0.72rem; }
+      .tab { padding: 3px 6px; font-size: 0.62rem; }
+      .overlay-bottom { font-size: 0.6rem; bottom: 8px; right: 10px; }
     }
   </style>
 </Layout>
