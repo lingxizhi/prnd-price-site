@@ -104,7 +104,7 @@ function buildCompareOption(data: CompareData) {
         return acc;
       }, {} as Record<string, boolean>)
     },
-    grid: { left: 75, right: 30, top: 80, bottom: 45 },
+    grid: { left: 75, right: 75, top: 80, bottom: 45 },
     xAxis: {
       type: 'category',
       data: labels,
@@ -126,13 +126,13 @@ function buildCompareOption(data: CompareData) {
       {
         query: { maxWidth: 500 }, // 小屏专属优化
         option: {
-          grid: { left: 55, right: 15, top: 100, bottom: 45 },
+          grid: { left: 55, right: 55, top: 100, bottom: 45 },
           xAxis: { axisLabel: { fontSize: 9 } }
         }
       },
       {
         option: {
-          grid: { left: 75, right: 30, top: 80, bottom: 45 }
+          grid: { left: 75, right: 75, top: 80, bottom: 45 }
         }
       }
     ]
@@ -240,12 +240,12 @@ function buildOption(data: ChartData) {
         areaStyle: { color: new (window as any).echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(167,139,250,0.15)' }, { offset: 1, color: 'rgba(167,139,250,0)' }])}
       }
     ],
-    grid: { left: 75, right: 30, top: 80, bottom: 65 },
+    grid: { left: 75, right: 75, top: 80, bottom: 65 },
     media: [
       {
         query: { maxWidth: 500 }, // 小屏专属优化
         option: {
-          grid: { left: 55, right: 10, top: 100, bottom: 70 }
+          grid: { left: 55, right: 55, top: 100, bottom: 70 }
         }
       }
     ]
