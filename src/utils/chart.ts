@@ -149,6 +149,7 @@ function buildOption(data: ChartData) {
     ]
   };
   const markLineConfig = {
+    silent: true, // 禁用均值线的点击/悬停交互（不响应鼠标事件）
     data: [{ type: 'average', name: '平均值' }],
     label: { formatter: '均值' },
     lineStyle: { type: 'dashed', color: '#94a3b8' }
