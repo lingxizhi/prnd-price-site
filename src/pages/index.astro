@@ -206,11 +206,10 @@ const compactCards = [
     /* 日期标签（放在卡片末尾） */
     .mini-date {
       font-size: 0.68rem;
-      color: #64748b;
+      color: #94a3b8;
       display: flex;
       align-items: center;
-      padding: 3px 8px;
-      border-right: 1px solid rgba(51, 65, 85, 0.4);
+      padding: 3px 6px;
       margin-right: 2px;
       white-space: nowrap;
     }
@@ -223,11 +222,11 @@ const compactCards = [
       gap: 5px;
       padding: 3px 10px;
       border-radius: 6px;
-      background: rgba(30, 41, 59, 0.55);
-      border: 1px solid rgba(51, 65, 85, 0.35);
+      background: transparent;
+      border: none;
       white-space: nowrap;
       cursor: default;
-      transition: border-color 0.2s, background 0.2s;
+      transition: none;
     }
     .mini-label { font-size: 0.68rem; color: #94a3b8; }
     .mini-value {
@@ -276,10 +275,6 @@ const compactCards = [
     .tooltip-row .down { color: #22c55e; }
 
     @media (hover: hover) {
-      .mini-card:hover {
-        border-color: rgba(71, 85, 105, 0.7);
-        background: rgba(30, 41, 59, 0.8);
-      }
       .mini-card:hover .mini-tooltip {
         display: block;
       }
