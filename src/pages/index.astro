@@ -1,7 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import prices from '../data/prices.json';
-import { fmtDate, fmtYuan, calcChange } from '../utils/format';
+import { fmtDate, fmtYuan, calcChange, fmtChgYuan } from '../utils/format';
 
 const len = prices.length;
 const latest = prices[len - 1];
@@ -37,9 +37,9 @@ const compareData = {
 };
 
 const compactCards = [
-  { label: '金属镨钕', price: latest.metalPrNd, prevPrice: prev.metalPrNd },
-  { label: '氧化镨钕', price: latest.oxidePrNd, prevPrice: prev.oxidePrNd },
-  { label: '废料镨钕', price: latest.wastePrNd, prevPrice: prev.wastePrNd },
+  { label: '金属镨钕', price: latest.metalPrNd, prevPrice: prev.metalPrNd, prevPrice7: prev7.metalPrNd, prevPrice30: prev30.metalPrNd, ytdPrice: ytd.metalPrNd },
+  { label: '氧化镨钕', price: latest.oxidePrNd, prevPrice: prev.oxidePrNd, prevPrice7: prev7.oxidePrNd, prevPrice30: prev30.oxidePrNd, ytdPrice: ytd.oxidePrNd },
+  { label: '废料镨钕', price: latest.wastePrNd, prevPrice: prev.wastePrNd, prevPrice7: prev7.wastePrNd, prevPrice30: prev30.wastePrNd, ytdPrice: ytd.wastePrNd },
 ];
 ---
 
@@ -47,50 +47,79 @@ const compactCards = [
   title="镨钕价格监控系统 - 稀土PrNd实时行情"
   description="实时追踪金属镨钕、氧化镨钕、废料镨钕价格走势，覆盖2025年12月至今全部工作日数据。"
 >
-  <!-- 全屏图表层 -->
-  <div id="chart" class="full-chart"></div>
+  <!-- 应用容器（用于旋转） -->
+  <div class="app" id="app">
+    <!-- 全屏图表层 -->
+    <div id="chart" class="full-chart"></div>
 
-  <!-- 顶部悬浮信息条（毛玻璃） -->
-  <div class="overlay-top">
-    <div class="overlay-brand">
-      <span class="brand-title">📊 镨钕价格</span>
-      <span class="brand-date">{fmtDate(latest.date)}</span>
+    <!-- 顶部悬浮信息条（毛玻璃） -->
+    <div class="overlay-top">
+      <div class="overlay-brand">
+        <span class="brand-title">📊 镨钕价格</span>
+      </div>
+      <div class="overlay-cards">
+        {compactCards.map(c => {
+          const chg = calcChange(c.price, c.prevPrice);
+          const chg7 = calcChange(c.price, c.prevPrice7);
+          const chg30 = calcChange(c.price, c.prevPrice30);
+          const chgY = calcChange(c.price, c.ytdPrice);
+          return (
+            <div class="mini-card">
+              <span class="mini-label">{c.label}</span>
+              <span class="mini-value">{fmtYuan(c.price)}</span>
+              <span class:list={['mini-chg', chg.up ? 'up' : 'down']}>
+                {chg.up ? '↑' : '↓'}{Math.abs(parseFloat(chg.pct))}%
+              </span>
+              <div class="mini-tooltip">
+                <div class="tooltip-row">
+                  <span>日涨跌</span>
+                  <span class:list={[chg.up ? 'up' : 'down']}>{fmtChgYuan(chg.diff)} ({chg.pct}%)</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>7日</span>
+                  <span class:list={[chg7.up ? 'up' : 'down']}>{fmtChgYuan(chg7.diff)} ({chg7.pct}%)</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>30日</span>
+                  <span class:list={[chg30.up ? 'up' : 'down']}>{fmtChgYuan(chg30.diff)} ({chg30.pct}%)</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>年初至今</span>
+                  <span class:list={[chgY.up ? 'up' : 'down']}>{fmtChgYuan(chgY.diff)} ({chgY.pct}%)</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <span class="mini-date">{fmtDate(latest.date)}</span>
+      </div>
+      <div class="chart-tabs">
+        <button class="tab active" data-range="all">全部</button>
+        <button class="tab" data-range="7">7天</button>
+        <button class="tab" data-range="30">30天</button>
+        <button class="tab" data-range="90">90天</button>
+        <button class="tab" data-range="compare">对比</button>
+      </div>
     </div>
-    <div class="overlay-cards">
-      {compactCards.map(c => {
-        const chg = calcChange(c.price, c.prevPrice);
-        return (
-          <div class="mini-card">
-            <span class="mini-label">{c.label}</span>
-            <span class="mini-value">{fmtYuan(c.price)}</span>
-            <span class:list={['mini-chg', chg.up ? 'up' : 'down']}>
-              {chg.up ? '↑' : '↓'}{Math.abs(parseFloat(chg.pct))}%
-            </span>
-          </div>
-        );
-      })}
-    </div>
-    <div class="chart-tabs">
-      <button class="tab active" data-range="all">全部</button>
-      <button class="tab" data-range="7">7天</button>
-      <button class="tab" data-range="30">30天</button>
-      <button class="tab" data-range="90">90天</button>
-      <button class="tab" data-range="compare">对比</button>
+
+    <!-- 右下角数据来源 -->
+    <div class="overlay-bottom">
+      数据来源：稀土行业公众号 · 共 {prices.length} 条记录
     </div>
   </div>
 
-  <!-- 右下角数据来源 -->
-  <div class="overlay-bottom">
-    数据来源：稀土行业公众号 · 共 {prices.length} 条记录
-  </div>
+  <!-- 竖屏旋转按钮（在 .app 外部，不受旋转影响） -->
+  <button class="rotate-btn" id="rotate-btn" title="旋转屏幕">↻</button>
 
   <!-- 数据注入 -->
   <script type="application/json" id="chart-data" set:html={JSON.stringify(chartData)} />
   <script type="application/json" id="compare-data" set:html={JSON.stringify(compareData)} />
 
-  <!-- 图表初始化 -->
+  <!-- 图表初始化 + 旋转逻辑 -->
   <script>
     import { initChart } from '../utils/chart';
+
+    // 图表初始化
     const el = document.getElementById('chart-data');
     const compareEl = document.getElementById('compare-data');
     if (el) {
@@ -98,27 +127,49 @@ const compactCards = [
       const compareData = compareEl ? JSON.parse(compareEl.textContent!) : null;
       initChart('chart', chartData, compareData);
     }
+
+    // 竖屏旋转
+    const btn = document.getElementById('rotate-btn');
+    const app = document.getElementById('app');
+    btn?.addEventListener('click', () => {
+      const isRotated = app.classList.toggle('rotated');
+      btn.textContent = isRotated ? '↺' : '↻';
+      // 动画结束后触发 chart resize
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 450);
+    });
   </script>
 
   <style>
     /* 防止页面滚动 */
-    :global(body) { overflow: hidden; margin: 0; padding: 0; }
+    :global(body) { margin: 0; padding: 0; overflow: hidden; }
+
+    /* ── 应用容器（旋转动画） ── */
+    .app {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      transition: transform 0.4s ease, width 0.4s ease, height 0.4s ease;
+    }
+    .app.rotated {
+      transform: rotate(90deg) translateY(-100%);
+      transform-origin: top left;
+      width: 100vh;
+      height: 100vw;
+    }
 
     /* 全屏图表 */
     .full-chart {
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
+      width: 100%;
+      height: 100%;
       background: #0f172a;
     }
 
     /* ── 顶部悬浮条 ── */
     .overlay-top {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
+      top: 0; left: 0; right: 0;
       z-index: 100;
       display: flex;
       align-items: center;
@@ -143,20 +194,30 @@ const compactCards = [
       letter-spacing: 0.5px;
       color: #e2e8f0;
     }
-    .brand-date {
-      font-size: 0.68rem;
-      color: #64748b;
-    }
     .overlay-cards {
       display: flex;
+      align-items: center;
       gap: 8px;
       flex: 1;
       justify-content: center;
       flex-wrap: wrap;
     }
 
+    /* 日期标签（放在卡片末尾） */
+    .mini-date {
+      font-size: 0.68rem;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-left: 1px solid rgba(51, 65, 85, 0.4);
+      margin-left: 2px;
+      white-space: nowrap;
+    }
+
     /* 紧凑价格卡片 */
     .mini-card {
+      position: relative;
       display: flex;
       align-items: baseline;
       gap: 5px;
@@ -165,6 +226,8 @@ const compactCards = [
       background: rgba(30, 41, 59, 0.55);
       border: 1px solid rgba(51, 65, 85, 0.35);
       white-space: nowrap;
+      cursor: default;
+      transition: border-color 0.2s, background 0.2s;
     }
     .mini-label { font-size: 0.68rem; color: #94a3b8; }
     .mini-value {
@@ -176,6 +239,51 @@ const compactCards = [
     .mini-chg { font-size: 0.66rem; font-weight: 600; }
     .mini-chg.up { color: #ef4444; }
     .mini-chg.down { color: #22c55e; }
+
+    /* ── Hover 浮出详情（仅桌面端） ── */
+    .mini-tooltip {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+      border-radius: 8px;
+      padding: 8px 12px;
+      z-index: 150;
+      white-space: nowrap;
+      min-width: 170px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+      pointer-events: none;
+    }
+    .tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      font-size: 0.7rem;
+      padding: 3px 0;
+      color: #94a3b8;
+    }
+    .tooltip-row span:first-child {
+      font-size: 0.66rem;
+      color: #64748b;
+    }
+    .tooltip-row span:last-child { font-weight: 500; }
+    .tooltip-row .up { color: #ef4444; }
+    .tooltip-row .down { color: #22c55e; }
+
+    @media (hover: hover) {
+      .mini-card:hover {
+        border-color: rgba(71, 85, 105, 0.7);
+        background: rgba(30, 41, 59, 0.8);
+      }
+      .mini-card:hover .mini-tooltip {
+        display: block;
+      }
+    }
 
     /* 时间切换 */
     .chart-tabs {
@@ -212,6 +320,35 @@ const compactCards = [
       pointer-events: none;
     }
 
+    /* ── 竖屏旋转按钮 ── */
+    .rotate-btn {
+      position: fixed;
+      bottom: 44px;
+      right: 14px;
+      z-index: 200;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(51, 65, 85, 0.5);
+      color: #94a3b8;
+      border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      font-size: 1.15rem;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      line-height: 1;
+      padding: 0;
+    }
+    .rotate-btn:hover { color: #e2e8f0; border-color: #64748b; background: rgba(15, 23, 42, 0.9); }
+
+    @media (orientation: portrait) {
+      .rotate-btn { display: flex; }
+    }
+
     /* ── 响应式 ── */
     @media (max-width: 768px) {
       .overlay-top {
@@ -228,30 +365,26 @@ const compactCards = [
         order: 2;
         margin-left: auto;
       }
-      .mini-card {
-        padding: 2px 7px;
-      }
+      .mini-card { padding: 2px 7px; }
       .mini-label { font-size: 0.64rem; }
       .mini-value { font-size: 0.76rem; }
       .mini-chg { font-size: 0.62rem; }
-      .tab {
-        padding: 3px 7px;
-        font-size: 0.65rem;
-      }
+      .tab { padding: 3px 7px; font-size: 0.65rem; }
       .brand-title { font-size: 0.82rem; }
+      .mini-date { font-size: 0.62rem; padding: 2px 6px; }
+      .rotate-btn { bottom: 36px; right: 10px; }
     }
 
     @media (max-width: 480px) {
-      .overlay-top {
-        padding: 6px 8px;
-        gap: 4px;
-      }
+      .overlay-top { padding: 6px 8px; gap: 4px; }
       .overlay-cards { gap: 4px; }
       .mini-card { padding: 2px 5px; gap: 3px; }
       .mini-label { font-size: 0.6rem; }
       .mini-value { font-size: 0.72rem; }
       .tab { padding: 3px 6px; font-size: 0.62rem; }
       .overlay-bottom { font-size: 0.6rem; bottom: 8px; right: 10px; }
+      .mini-date { font-size: 0.58rem; padding: 2px 4px; border-left: none; margin-left: 2px; }
+      .rotate-btn { bottom: 32px; right: 8px; width: 30px; height: 30px; font-size: 1rem; }
     }
   </style>
 </Layout>
