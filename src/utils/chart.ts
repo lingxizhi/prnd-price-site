@@ -253,22 +253,26 @@ function buildBar3DOption(rawData: ChartData) {
     },
     grid3D: {
       boxWidth: Math.min(180, dates.length * 3), boxDepth: 50, boxHeight: 80,
-      viewControl: { autoRotate: false, distance: 180, alpha: 30, beta: 40, animation: false },
+      viewControl: { autoRotate: false, distance: 180, alpha: 25, beta: 50, animation: false },
       light: { main: { intensity: 1.2, alpha: 35, beta: 30 }, ambient: { intensity: 0.6 } },
     },
     xAxis3D: {
       type: 'category', data: dates,
       axisLabel: { fontSize: 9, color: '#94a3b8', interval: Math.max(1, Math.floor(dates.length / 15)), formatter: (v: string) => v.slice(5) },
-      axisLine: { lineStyle: { color: '#334155' } },
+      axisLine: { lineStyle: { color: '#1e293b' } },
+      splitLine: { show: false },
     },
     yAxis3D: {
       type: 'category', data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
-      axisLabel: { fontSize: 11, color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } },
+      axisLabel: { fontSize: 11, color: '#94a3b8' },
+      axisLine: { lineStyle: { color: '#1e293b' } },
+      splitLine: { show: false },
     },
     zAxis3D: {
       type: 'value',
       axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
-      splitLine: { lineStyle: { color: '#1e293b' } },
+      axisLine: { lineStyle: { color: '#1e293b' } },
+      splitLine: { show: false },
     },
     series: [
       {
@@ -321,22 +325,26 @@ function buildLine3DOption(rawData: ChartData) {
     },
     grid3D: {
       boxWidth: Math.min(180, dates.length * 3), boxDepth: 60, boxHeight: 100,
-      viewControl: { autoRotate: false, distance: 180, alpha: 30, beta: 40, animation: false },
+      viewControl: { autoRotate: false, distance: 180, alpha: 25, beta: 50, animation: false },
       light: { main: { intensity: 1.2, alpha: 35, beta: 30 }, ambient: { intensity: 0.6 } },
     },
     xAxis3D: {
       type: 'category', data: dates,
       axisLabel: { fontSize: 9, color: '#94a3b8', interval: Math.max(1, Math.floor(dates.length / 15)), formatter: (v: string) => v.slice(5) },
-      axisLine: { lineStyle: { color: '#334155' } },
+      axisLine: { lineStyle: { color: '#1e293b' } },
+      splitLine: { show: false },
     },
     yAxis3D: {
       type: 'category', data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
-      axisLabel: { fontSize: 11, color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } },
+      axisLabel: { fontSize: 11, color: '#94a3b8' },
+      axisLine: { lineStyle: { color: '#1e293b' } },
+      splitLine: { show: false },
     },
     zAxis3D: {
       type: 'value',
       axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
-      splitLine: { lineStyle: { color: '#1e293b' } },
+      axisLine: { lineStyle: { color: '#1e293b' } },
+      splitLine: { show: false },
     },
     series: [
       { name: '金属镨钕', type: 'line3D', data: ml, lineStyle: { color: '#f97316', width: 1.5 }, itemStyle: { color: '#f97316' } },
@@ -441,8 +449,56 @@ export async function initChart(containerId: string, rawData: ChartData, compare
         chart3D.dispose();
         chart3D = echarts.init(container3D, 'dark');
         chart3D.setOption(build3DOption(filtered));
+        setup3DInteractions(chart3D);
       }
       show3DTypeTabs();
+    }
+
+    /** 3D 交互：网格旋转时出现、图例联动轴标签 */
+    let _gridTimer: ReturnType<typeof setTimeout> | null = null;
+    let _legendHandler: ((p: any) => void) | null = null;
+
+    function setup3DInteractions(c3d: any) {
+      const dom = c3d.getDom() as HTMLElement;
+      // 移除旧监听
+      if (_legendHandler && chart3D && chart3D !== c3d) {
+        try { chart3D.off('legendselectchanged', _legendHandler); } catch { /* */ }
+      }
+
+      function showGrid() {
+        if (_gridTimer) { clearTimeout(_gridTimer); _gridTimer = null; }
+        c3d.setOption({
+          xAxis3D: { splitLine: { show: true, lineStyle: { color: '#334155' } } },
+          zAxis3D: { splitLine: { show: true, lineStyle: { color: '#334155' } } },
+        });
+      }
+      function hideGrid() {
+        _gridTimer = setTimeout(() => {
+          c3d.setOption({
+            xAxis3D: { splitLine: { show: false } },
+            zAxis3D: { splitLine: { show: false } },
+          });
+        }, 600);
+      }
+
+      dom.addEventListener('mousedown', showGrid);
+      dom.addEventListener('mousemove', showGrid);
+      dom.addEventListener('mouseup', hideGrid);
+      dom.addEventListener('mouseleave', hideGrid);
+      dom.addEventListener('touchstart', showGrid);
+      dom.addEventListener('touchmove', showGrid);
+      dom.addEventListener('touchend', hideGrid);
+
+      // 图例点击 → Y 轴标签同步
+      const allLabels = ['金属镨钕', '氧化镨钕', '废料镨钕'];
+      _legendHandler = function (params: any) {
+        const sel = params.selected;
+        c3d.setOption({ yAxis3D: { data: allLabels.map((n: string) => sel[n] ? n : '') } });
+      };
+      c3d.on('legendselectchanged', _legendHandler);
+
+      // 初始同步：默认只显示金属（与 legend.selected 一致）
+      c3d.setOption({ yAxis3D: { data: ['金属镨钕', '', ''] } });
     }
 
     function switchToTrend() {
@@ -504,6 +560,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
           const filtered = activeDays ? filterByDays(rawData, activeDays) : rawData;
           chart3D = echarts.init(container3D, 'dark');
           chart3D.setOption(build3DOption(filtered));
+          setup3DInteractions(chart3D);
 
           // 监听 3D 容器 resize
           if (!(window as any).__prnd3dResizeBound) {
