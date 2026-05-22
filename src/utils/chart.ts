@@ -247,7 +247,7 @@ function buildBar3DOption(rawData: ChartData) {
     },
     legend: {
       data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
-      top: 58, left: 'center',
+      top: 72, left: 'center',
       textStyle: { color: '#94a3b8', fontSize: 12 },
       selected: { '氧化镨钕': false, '废料镨钕': false },
     },
@@ -319,7 +319,7 @@ function buildLine3DOption(rawData: ChartData) {
     },
     legend: {
       data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
-      top: 58, left: 'center',
+      top: 72, left: 'center',
       textStyle: { color: '#94a3b8', fontSize: 12 },
       selected: { '氧化镨钕': false, '废料镨钕': false },
     },
@@ -454,50 +454,52 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       show3DTypeTabs();
     }
 
-    /** 3D 交互：网格旋转时出现、图例联动轴标签 */
-    let _gridTimer: ReturnType<typeof setTimeout> | null = null;
-    let _legendHandler: ((p: any) => void) | null = null;
-
+    /** 3D 交互：网格仅在拖拽旋转时出现、图例联动轴标签 */
     function setup3DInteractions(c3d: any) {
+      const allLabels = ['金属镨钕', '氧化镨钕', '废料镨钕'];
       const dom = c3d.getDom() as HTMLElement;
-      // 移除旧监听
-      if (_legendHandler && chart3D && chart3D !== c3d) {
-        try { chart3D.off('legendselectchanged', _legendHandler); } catch { /* */ }
-      }
 
-      function showGrid() {
-        if (_gridTimer) { clearTimeout(_gridTimer); _gridTimer = null; }
+      // 找到 echarts-gl 创建的 canvas（延迟获取，可能在下一个微任务才创建）
+      const getCanvas = (): HTMLCanvasElement | null => dom.querySelector('canvas');
+
+      let gridTimer: ReturnType<typeof setTimeout> | null = null;
+      let isDragging = false;
+
+      const showGrid = () => {
+        if (gridTimer) { clearTimeout(gridTimer); gridTimer = null; }
         c3d.setOption({
           xAxis3D: { splitLine: { show: true, lineStyle: { color: '#334155' } } },
           zAxis3D: { splitLine: { show: true, lineStyle: { color: '#334155' } } },
         });
-      }
-      function hideGrid() {
-        _gridTimer = setTimeout(() => {
+      };
+      const scheduleHideGrid = () => {
+        gridTimer = setTimeout(() => {
           c3d.setOption({
             xAxis3D: { splitLine: { show: false } },
             zAxis3D: { splitLine: { show: false } },
           });
-        }, 600);
-      }
+        }, 500);
+      };
 
-      dom.addEventListener('mousedown', showGrid);
-      dom.addEventListener('mousemove', showGrid);
-      dom.addEventListener('mouseup', hideGrid);
-      dom.addEventListener('mouseleave', hideGrid);
-      dom.addEventListener('touchstart', showGrid);
-      dom.addEventListener('touchmove', showGrid);
-      dom.addEventListener('touchend', hideGrid);
+      // 在 canvas 上监听拖拽（不在 container div 上，避免干扰 echarts-gl 内部逻辑）
+      const bindGrid = () => {
+        const cv = getCanvas();
+        if (!cv) { setTimeout(bindGrid, 50); return; }
+        cv.addEventListener('mousedown', () => { isDragging = true; showGrid(); });
+        cv.addEventListener('mouseup', () => { isDragging = false; scheduleHideGrid(); });
+        cv.addEventListener('mouseleave', () => { isDragging = false; scheduleHideGrid(); });
+        cv.addEventListener('touchstart', () => { isDragging = true; showGrid(); });
+        cv.addEventListener('touchend', () => { isDragging = false; scheduleHideGrid(); });
+      };
+      setTimeout(bindGrid, 100);
 
       // 图例点击 → Y 轴标签同步
-      const allLabels = ['金属镨钕', '氧化镨钕', '废料镨钕'];
-      _legendHandler = function (params: any) {
+      c3d.on('legendselectchanged', function (params: any) {
         const sel = params.selected;
         c3d.setOption({ yAxis3D: { data: allLabels.map((n: string) => sel[n] ? n : '') } });
-      };
-      c3d.on('legendselectchanged', _legendHandler);
+      });
 
-      // 初始同步：默认只显示金属（与 legend.selected 一致）
+      // 初始同步：默认只显示金属
       c3d.setOption({ yAxis3D: { data: ['金属镨钕', '', ''] } });
     }
 
