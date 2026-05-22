@@ -468,10 +468,9 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     async function switchTo3D() {
       currentMode = '3d';
       container2D.style.display = 'none';
-      container3D.style.display = '';
-      // 显示加载状态
+      // 强制 absolute 定位 + 显式尺寸，确保 echarts-gl 初始化时容器已有正确宽高
+      container3D.style.cssText = 'display:block;position:absolute;top:0;left:0;width:100%;height:100%;background:#0f172a;z-index:50';
       container3D.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;"><div style="width:32px;height:32px;border:3px solid #334155;border-top-color:#f97316;border-radius:50%;animation:spin3d 0.8s linear infinite;"></div><span style="color:#94a3b8;font-size:14px;">加载 3D 引擎中...</span></div>';
-      // 注入旋转动画样式（只注入一次）
       if (!document.getElementById('spin3d-style')) {
         const style = document.createElement('style');
         style.id = 'spin3d-style';
@@ -481,13 +480,40 @@ export async function initChart(containerId: string, rawData: ChartData, compare
 
       try {
         await loadEChartsGL();
-        if (chart3D) chart3D.dispose();
+        // 强制重排：读取 offsetHeight 确保浏览器完成布局计算
+        void container3D.offsetHeight;
+
+        // 探针验证：bar3D 是否已注册（ECharts 对未注册类型静默失败不抛异常）
+        let bar3dOk = false;
+        const probe = document.createElement('div');
+        probe.style.cssText = 'position:absolute;width:10px;height:10px;left:-9999px;top:-9999px';
+        document.body.appendChild(probe);
+        try {
+          const probeChart = echarts.init(probe);
+          probeChart.setOption({
+            grid3D: {},
+            xAxis3D: { type: 'category' as any, data: ['a'] },
+            yAxis3D: { type: 'category' as any, data: ['b'] },
+            zAxis3D: { type: 'value' as any },
+            series: [{ type: 'bar3D' as any, data: [[0, 0, 1]] }],
+          });
+          bar3dOk = !!probe.querySelector('canvas');
+          probeChart.dispose();
+        } catch { /* probe failed */ }
+        probe.remove();
+
+        if (!bar3dOk) {
+          throw new Error('bar3D 组件未成功注册（echarts-gl 可能不兼容当前环境）');
+        }
+
+        if (chart3D) { chart3D.dispose(); chart3D = null; }
         chart3D = echarts.init(container3D, 'dark');
         chart3D.setOption(buildBar3DOption(rawData));
       } catch (err) {
-        console.error('ECharts GL load failed, fallback to 2D', err);
+        console.error('3D init failed:', err);
+        const errMsg = err instanceof Error ? err.message : '未知错误';
         container3D.innerHTML =
-          '<p style="text-align:center;color:#94a3b8;padding:60px;">3D 模块加载失败，请检查网络后重试</p>';
+          '<p style="text-align:center;color:#94a3b8;padding:60px;">3D 加载失败<br/><span style="font-size:12px;color:#64748b;">' + errMsg + '</span></p>';
         // 3 秒后自动切回 2D
         setTimeout(() => {
           chart.resize();
@@ -510,7 +536,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
         chart3D = null;
       }
       container2D.style.display = '';
-      container3D.style.display = 'none';
+      container3D.style.cssText = 'display:none';
     }
 
     // 动态更新底部的当前日期区间
