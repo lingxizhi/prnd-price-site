@@ -582,9 +582,12 @@ export async function initChart(containerId: string, rawData: ChartData, compare
           return;
         }
       } else {
-        // 已加载过，直接显示并更新数据
+        // 已加载过，直接显示并更新数据（保留图例选择的Y轴状态）
         const filtered = activeDays ? filterByDays(rawData, activeDays) : rawData;
-        chart3D.setOption(build3DOption(filtered), false);
+        const opt = build3DOption(filtered);
+        const savedY = getCurrentYData();
+        if (savedY) opt.yAxis3D.data = savedY;
+        chart3D.setOption(opt, false);
         chart3D.resize();
       }
 
@@ -594,12 +597,22 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       updateModeBtnText();
     }
 
+    // 从当前 3D 实例读取 Y 轴标签状态，避免 setOption 覆盖
+    function getCurrentYData(): string[] | null {
+      if (!chart3D) return null;
+      const opt = chart3D.getOption();
+      return (opt as any)?.yAxis3D?.[0]?.data || null;
+    }
+
     // 3D 模式下更新日期范围
     function update3DRange(days: number | null) {
       activeDays = days;
       if (currentMode === '3d' && chart3D) {
         const filtered = days ? filterByDays(rawData, days) : rawData;
-        chart3D.setOption(build3DOption(filtered), false);
+        const opt = build3DOption(filtered);
+        const savedY = getCurrentYData();
+        if (savedY) opt.yAxis3D.data = savedY;
+        chart3D.setOption(opt, false);
       }
       // 同时更新 2D 的 dataZoom（以便切回时保持一致）
       if (currentMode !== '3d') {
