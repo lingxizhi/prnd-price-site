@@ -448,6 +448,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
         chart3D = echarts.init(container3D, 'dark');
         chart3D.setOption(build3DOption(filtered));
         setup3DInteractions(chart3D);
+        syncLegendFrom2D(chart3D);
       }
       show3DTypeTabs();
     }
@@ -502,10 +503,27 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       });
     }
 
-    /** 设置初始图例状态：默认只显示金属，同步 Y 轴 */
-    function initLegendState(c3d: any) {
-      c3d.dispatchAction({ type: 'legendToggleSelect', name: '氧化镨钕' });
-      c3d.dispatchAction({ type: 'legendToggleSelect', name: '废料镨钕' });
+    /** 从 2D 图例读取选中状态，同步到 3D 图例 */
+    function syncLegendFrom2D(c3d: any) {
+      const allLabels = ['金属镨钕', '氧化镨钕', '废料镨钕'];
+      let sel2d: Record<string, boolean> = {};
+      try {
+        const opt2d = chart.getOption();
+        sel2d = (opt2d as any)?.legend?.[0]?.selected || {};
+      } catch { /* ignore */ }
+      let sel3d: Record<string, boolean> = {};
+      try {
+        const opt3d = c3d.getOption();
+        sel3d = (opt3d as any)?.legend?.[0]?.selected || {};
+      } catch { /* ignore */ }
+
+      for (const name of allLabels) {
+        const want = sel2d[name] !== false;
+        const have = sel3d[name] !== false;
+        if (want !== have) {
+          c3d.dispatchAction({ type: 'legendToggleSelect', name });
+        }
+      }
     }
 
     function switchToTrend() {
@@ -568,6 +586,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
           chart3D = echarts.init(container3D, 'dark');
           chart3D.setOption(build3DOption(filtered));
           setup3DInteractions(chart3D);
+          syncLegendFrom2D(chart3D);
 
           // 监听 3D 容器 resize
           if (!(window as any).__prnd3dResizeBound) {
@@ -588,6 +607,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
         const savedY = getCurrentYData();
         if (savedY) opt.yAxis3D.data = savedY;
         chart3D.setOption(opt, false);
+        syncLegendFrom2D(chart3D);
         chart3D.resize();
       }
 
