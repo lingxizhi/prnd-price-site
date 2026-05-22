@@ -293,6 +293,104 @@ function buildBar3DOption(rawData: ChartData) {
   };
 }
 
+/** 构建 3D 曲面图配置 */
+function buildSurfaceOption(rawData: ChartData) {
+  const data = sampleData(rawData, 60);
+  const { dates, metal, oxide, waste } = data;
+
+  return {
+    tooltip: {
+      confine: true, backgroundColor: 'rgba(15,23,42,0.95)', borderColor: '#334155',
+      textStyle: { color: '#e2e8f0', fontSize: 13 },
+    },
+    visualMap: {
+      min: Math.min(...metal, ...oxide, ...waste),
+      max: Math.max(...metal, ...oxide, ...waste),
+      inRange: { color: ['#1e3a5f', '#38bdf8', '#f97316', '#fbbf24'] },
+      show: true, orient: 'horizontal', left: 'center', bottom: 5,
+      textStyle: { color: '#94a3b8', fontSize: 10 },
+      formatter: (v: number) => (v / 10000).toFixed(1) + 'w',
+    },
+    grid3D: {
+      boxWidth: Math.min(160, dates.length * 2.5), boxDepth: 70, boxHeight: 60,
+      viewControl: { autoRotate: false, distance: 160, alpha: 25, beta: 35, animation: false },
+      light: { main: { intensity: 1.0, alpha: 30, beta: 40 }, ambient: { intensity: 0.7 } },
+    },
+    xAxis3D: {
+      type: 'category', data: dates,
+      axisLabel: { fontSize: 8, color: '#94a3b8', interval: Math.max(1, Math.floor(dates.length / 12)), formatter: (v: string) => v.slice(5) },
+      axisLine: { lineStyle: { color: '#334155' } },
+    },
+    yAxis3D: {
+      type: 'category', data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
+      axisLabel: { fontSize: 11, color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } },
+    },
+    zAxis3D: {
+      type: 'value',
+      axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
+      splitLine: { lineStyle: { color: '#1e293b' } },
+    },
+    series: [{
+      type: 'surface', data: [metal, oxide, waste], shading: 'lambert',
+      wireframe: { show: true, lineStyle: { color: 'rgba(148,163,184,0.15)', width: 0.5 } },
+      itemStyle: { opacity: 0.85 },
+    }],
+  };
+}
+
+/** 构建 3D 折线图配置 */
+function buildLine3DOption(rawData: ChartData) {
+  const data = sampleData(rawData);
+  const { dates, metal, oxide, waste } = data;
+  const ml: [number, number, number][] = [];
+  const ol: [number, number, number][] = [];
+  const wl: [number, number, number][] = [];
+  dates.forEach((_, i) => { ml.push([i, 0, metal[i]]); ol.push([i, 1, oxide[i]]); wl.push([i, 2, waste[i]]); });
+
+  return {
+    tooltip: {
+      confine: true, backgroundColor: 'rgba(15,23,42,0.95)', borderColor: '#334155',
+      textStyle: { color: '#e2e8f0', fontSize: 13 },
+      formatter(params: any) {
+        const x = dates[params.value[0]];
+        const names = ['金属镨钕', '氧化镨钕', '废料镨钕'];
+        const y = names[params.value[1]] || params.seriesName || '';
+        return `<b>${x}</b><br/>${y}：<b>${Number(params.value[2]).toLocaleString()}</b> 元/吨`;
+      },
+    },
+    legend: {
+      data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
+      top: 58, left: 'center',
+      textStyle: { color: '#94a3b8', fontSize: 12 },
+      selected: { '氧化镨钕': false, '废料镨钕': false },
+    },
+    grid3D: {
+      boxWidth: Math.min(180, dates.length * 3), boxDepth: 60, boxHeight: 100,
+      viewControl: { autoRotate: false, distance: 180, alpha: 30, beta: 40, animation: false },
+      light: { main: { intensity: 1.2, alpha: 35, beta: 30 }, ambient: { intensity: 0.6 } },
+    },
+    xAxis3D: {
+      type: 'category', data: dates,
+      axisLabel: { fontSize: 9, color: '#94a3b8', interval: Math.max(1, Math.floor(dates.length / 15)), formatter: (v: string) => v.slice(5) },
+      axisLine: { lineStyle: { color: '#334155' } },
+    },
+    yAxis3D: {
+      type: 'category', data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
+      axisLabel: { fontSize: 11, color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } },
+    },
+    zAxis3D: {
+      type: 'value',
+      axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
+      splitLine: { lineStyle: { color: '#1e293b' } },
+    },
+    series: [
+      { name: '金属镨钕', type: 'line3D', data: ml, lineStyle: { color: '#f97316', width: 1.5 }, itemStyle: { color: '#f97316' } },
+      { name: '氧化镨钕', type: 'line3D', data: ol, lineStyle: { color: '#38bdf8', width: 1.5 }, itemStyle: { color: '#38bdf8' } },
+      { name: '废料镨钕', type: 'line3D', data: wl, lineStyle: { color: '#a78bfa', width: 1.5 }, itemStyle: { color: '#a78bfa' } },
+    ],
+  };
+}
+
 // ── 主入口 ──
 
 export async function initChart(containerId: string, rawData: ChartData, compareData?: CompareData | null) {
@@ -329,6 +427,13 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     let isTabClicking = false;
     let chart3D: any = null;
     let activeDays: number | null = 30; // null=全部, 7/30/90
+    let current3DType: 'bar' | 'surface' | 'line' = 'bar';
+
+    function build3DOption(data: ChartData) {
+      if (current3DType === 'surface') return buildSurfaceOption(data);
+      if (current3DType === 'line') return buildLine3DOption(data);
+      return buildBar3DOption(data);
+    }
 
     // ── 辅助：更新 tab 按钮高亮 ──
     function highlightTab(selector: string) {
@@ -364,10 +469,21 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       if (btn) (btn as HTMLElement).textContent = currentMode === '3d' ? '切换2D' : '切换3D';
     }
 
+    function show3DTypeTabs() {
+      document.querySelectorAll('.tab-3dtype').forEach(b => ((b as HTMLElement).style.display = ''));
+      document.querySelectorAll('.tab-3dtype').forEach(b => b.classList.remove('active'));
+      const a = document.querySelector(`.tab-3dtype[data-3dtype="${current3DType}"]`);
+      if (a) a.classList.add('active');
+    }
+    function hide3DTypeTabs() {
+      document.querySelectorAll('.tab-3dtype').forEach(b => ((b as HTMLElement).style.display = 'none'));
+    }
+
     function switchToTrend() {
       currentMode = 'trend';
       container3D.style.display = 'none';
       container2D.style.display = '';
+      hide3DTypeTabs();
       chart.resize();
       chart.clear();
       chart.setOption(buildOption(rawData), true);
@@ -421,7 +537,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
 
           const filtered = activeDays ? filterByDays(rawData, activeDays) : rawData;
           chart3D = echarts.init(container3D, 'dark');
-          chart3D.setOption(buildBar3DOption(filtered));
+          chart3D.setOption(build3DOption(filtered));
 
           // 监听 3D 容器 resize
           if (!(window as any).__prnd3dResizeBound) {
@@ -438,10 +554,11 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       } else {
         // 已加载过，直接显示并更新数据
         const filtered = activeDays ? filterByDays(rawData, activeDays) : rawData;
-        chart3D.setOption(buildBar3DOption(filtered), true);
+        chart3D.setOption(build3DOption(filtered), true);
         chart3D.resize();
       }
 
+      show3DTypeTabs();
       setCookie(COOKIE_KEY, '3d');
       highlight3DMode();
       updateModeBtnText();
@@ -452,7 +569,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       activeDays = days;
       if (currentMode === '3d' && chart3D) {
         const filtered = days ? filterByDays(rawData, days) : rawData;
-        chart3D.setOption(buildBar3DOption(filtered), true);
+        chart3D.setOption(build3DOption(filtered), true);
       }
       // 同时更新 2D 的 dataZoom（以便切回时保持一致）
       if (currentMode !== '3d') {
@@ -533,6 +650,14 @@ export async function initChart(containerId: string, rawData: ChartData, compare
         }
 
         setTimeout(() => { updateTitleDateRange(); isTabClicking = false; }, 100);
+      });
+    });
+
+    // ── 3D 类型子切换按钮 ──
+    document.querySelectorAll('.tab-3dtype[data-3dtype]').forEach(btn => {
+      (btn as HTMLElement).addEventListener('click', function () {
+        const type = this.dataset['3dtype'] as 'bar' | 'surface' | 'line';
+        switch3DType(type);
       });
     });
 

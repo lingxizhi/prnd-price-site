@@ -100,6 +100,10 @@ const compactCards = [
         <button class="tab active" data-range="30">30天</button>
         <button class="tab" data-range="90">90天</button>
         <button class="tab" data-range="compare">对比</button>
+        <span class="tabs-sep"></span>
+        <button class="tab tab-3dtype" data-3dtype="bar" style="display:none">柱状</button>
+        <button class="tab tab-3dtype" data-3dtype="surface" style="display:none">曲面</button>
+        <button class="tab tab-3dtype" data-3dtype="line" style="display:none">折线</button>
       </div>
     </div>
 
@@ -303,6 +307,17 @@ const compactCards = [
       background: #334155;
       color: #e2e8f0;
       border-color: #475569;
+    }
+    .tabs-sep {
+      width: 1px;
+      height: 18px;
+      background: #334155;
+      margin: 0 2px;
+      flex-shrink: 0;
+    }
+    .tab-3dtype {
+      font-size: 0.66rem;
+      padding: 3px 7px;
     }
     /* 3D 模式激活态 */
     .tab.active-mode {
