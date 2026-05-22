@@ -221,7 +221,7 @@ function buildOption(data: ChartData) {
 
 // ── 构建 3D 柱状图配置 ──
 
-function buildBar3DOption(rawData: ChartData) {
+function buildBar3DOption(rawData: ChartData, zRange?: { min: number; max: number }) {
   const data = sampleData(rawData);
   const { dates, metal, oxide, waste } = data;
 
@@ -269,6 +269,10 @@ function buildBar3DOption(rawData: ChartData) {
     },
     zAxis3D: (() => {
       const all = [...rawData.metal, ...rawData.oxide, ...rawData.waste];
+      if (zRange) return { type: 'value' as const, min: zRange.min, max: zRange.max,
+        axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
+        axisLine: { lineStyle: { color: '#1e293b' } }, splitLine: { show: false } };
+      const all = [...rawData.metal, ...rawData.oxide, ...rawData.waste];
       const lo = Math.min(...all); const hi = Math.max(...all); const pad = (hi - lo) * 0.02 || 200;
       return { type: 'value' as const, min: lo - pad, max: hi + pad,
         axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
@@ -298,7 +302,7 @@ function buildBar3DOption(rawData: ChartData) {
 }
 
 /** 构建 3D 折线图配置 */
-function buildLine3DOption(rawData: ChartData) {
+function buildLine3DOption(rawData: ChartData, zRange?: { min: number; max: number }) {
   const data = sampleData(rawData);
   const { dates, metal, oxide, waste } = data;
   const ml: [number, number, number][] = [];
@@ -340,6 +344,9 @@ function buildLine3DOption(rawData: ChartData) {
       splitLine: { show: false },
     },
     zAxis3D: (() => {
+      if (zRange) return { type: 'value' as const, min: zRange.min, max: zRange.max,
+        axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
+        axisLine: { lineStyle: { color: '#1e293b' } }, splitLine: { show: false } };
       const all = [...rawData.metal, ...rawData.oxide, ...rawData.waste];
       const lo = Math.min(...all); const hi = Math.max(...all); const pad = (hi - lo) * 0.02 || 200;
       return { type: 'value' as const, min: lo - pad, max: hi + pad,
@@ -392,9 +399,28 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     let activeDays: number | null = 30; // null=全部, 7/30/90
     let current3DType: 'bar' | 'line' = 'bar';
 
+    /** 仅计算当前可见品种的 Z 轴范围 */
+    function getZRange(data: ChartData) {
+      const productMap: Record<string, number[]> = { '金属镨钕': data.metal, '氧化镨钕': data.oxide, '废料镨钕': data.waste };
+      // 读取图例选中状态确定可见品种
+      let visible = ['金属镨钕', '氧化镨钕', '废料镨钕'];
+      try {
+        if (chart3D) {
+          const sel = (chart3D.getOption() as any)?.legend?.[0]?.selected || {};
+          visible = visible.filter(n => sel[n] !== false);
+        }
+      } catch { /* */ }
+      const all = visible.flatMap(n => productMap[n] || []);
+      if (all.length === 0) return undefined;
+      const lo = Math.min(...all); const hi = Math.max(...all);
+      const pad = (hi - lo) * 0.02 || 200;
+      return { min: lo - pad, max: hi + pad };
+    }
+
     function build3DOption(data: ChartData) {
-      if (current3DType === 'line') return buildLine3DOption(data);
-      return buildBar3DOption(data);
+      const zr = getZRange(data);
+      if (current3DType === 'line') return buildLine3DOption(data, zr);
+      return buildBar3DOption(data, zr);
     }
 
     // ── 辅助：更新 tab 按钮高亮 ──
