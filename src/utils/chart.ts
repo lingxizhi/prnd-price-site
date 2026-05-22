@@ -249,7 +249,6 @@ function buildBar3DOption(rawData: ChartData) {
       data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
       top: 72, left: 'center',
       textStyle: { color: '#94a3b8', fontSize: 12 },
-      selected: { '氧化镨钕': false, '废料镨钕': false },
     },
     grid3D: {
       boxWidth: Math.min(180, dates.length * 3), boxDepth: 50, boxHeight: 80,
@@ -321,7 +320,6 @@ function buildLine3DOption(rawData: ChartData) {
       data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
       top: 72, left: 'center',
       textStyle: { color: '#94a3b8', fontSize: 12 },
-      selected: { '氧化镨钕': false, '废料镨钕': false },
     },
     grid3D: {
       boxWidth: Math.min(180, dates.length * 3), boxDepth: 60, boxHeight: 100,
@@ -455,15 +453,17 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     }
 
     /** 3D 交互：网格仅在拖拽旋转时出现、图例联动轴标签 */
+    let _bindGridTimer: ReturnType<typeof setTimeout> | null = null;
+
     function setup3DInteractions(c3d: any) {
+      // 取消之前未完成的 bindGrid 定时器
+      if (_bindGridTimer) { clearTimeout(_bindGridTimer); _bindGridTimer = null; }
+
       const allLabels = ['金属镨钕', '氧化镨钕', '废料镨钕'];
       const dom = c3d.getDom() as HTMLElement;
-
-      // 找到 echarts-gl 创建的 canvas（延迟获取，可能在下一个微任务才创建）
       const getCanvas = (): HTMLCanvasElement | null => dom.querySelector('canvas');
 
       let gridTimer: ReturnType<typeof setTimeout> | null = null;
-      let isDragging = false;
 
       const showGrid = () => {
         if (gridTimer) { clearTimeout(gridTimer); gridTimer = null; }
@@ -481,26 +481,28 @@ export async function initChart(containerId: string, rawData: ChartData, compare
         }, 500);
       };
 
-      // 在 canvas 上监听拖拽（不在 container div 上，避免干扰 echarts-gl 内部逻辑）
       const bindGrid = () => {
         const cv = getCanvas();
-        if (!cv) { setTimeout(bindGrid, 50); return; }
-        cv.addEventListener('mousedown', () => { isDragging = true; showGrid(); });
-        cv.addEventListener('mouseup', () => { isDragging = false; scheduleHideGrid(); });
-        cv.addEventListener('mouseleave', () => { isDragging = false; scheduleHideGrid(); });
-        cv.addEventListener('touchstart', () => { isDragging = true; showGrid(); });
-        cv.addEventListener('touchend', () => { isDragging = false; scheduleHideGrid(); });
+        if (!cv) { _bindGridTimer = setTimeout(bindGrid, 50); return; }
+        cv.addEventListener('mousedown', showGrid);
+        cv.addEventListener('mouseup', scheduleHideGrid);
+        cv.addEventListener('mouseleave', scheduleHideGrid);
+        cv.addEventListener('touchstart', showGrid);
+        cv.addEventListener('touchend', scheduleHideGrid);
       };
-      setTimeout(bindGrid, 100);
+      _bindGridTimer = setTimeout(bindGrid, 100);
 
       // 图例点击 → Y 轴标签同步
       c3d.on('legendselectchanged', function (params: any) {
         const sel = params.selected;
         c3d.setOption({ yAxis3D: { data: allLabels.map((n: string) => sel[n] ? n : '') } });
       });
+    }
 
-      // 初始同步：默认只显示金属
-      c3d.setOption({ yAxis3D: { data: ['金属镨钕', '', ''] } });
+    /** 设置初始图例状态：默认只显示金属，同步 Y 轴 */
+    function initLegendState(c3d: any) {
+      c3d.dispatchAction({ type: 'legendToggleSelect', name: '氧化镨钕' });
+      c3d.dispatchAction({ type: 'legendToggleSelect', name: '废料镨钕' });
     }
 
     function switchToTrend() {
@@ -579,7 +581,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       } else {
         // 已加载过，直接显示并更新数据
         const filtered = activeDays ? filterByDays(rawData, activeDays) : rawData;
-        chart3D.setOption(build3DOption(filtered), true);
+        chart3D.setOption(build3DOption(filtered), false);
         chart3D.resize();
       }
 
@@ -594,7 +596,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       activeDays = days;
       if (currentMode === '3d' && chart3D) {
         const filtered = days ? filterByDays(rawData, days) : rawData;
-        chart3D.setOption(build3DOption(filtered), true);
+        chart3D.setOption(build3DOption(filtered), false);
       }
       // 同时更新 2D 的 dataZoom（以便切回时保持一致）
       if (currentMode !== '3d') {
