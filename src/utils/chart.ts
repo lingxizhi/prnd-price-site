@@ -470,13 +470,25 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     }
 
     function show3DTypeTabs() {
-      document.querySelectorAll('.tab-3dtype').forEach(b => ((b as HTMLElement).style.display = ''));
-      document.querySelectorAll('.tab-3dtype').forEach(b => b.classList.remove('active'));
-      const a = document.querySelector(`.tab-3dtype[data-3dtype="${current3DType}"]`);
-      if (a) a.classList.add('active');
+      const sel = document.getElementById('prnd-3dtype') as HTMLSelectElement | null;
+      if (sel) { sel.style.display = ''; sel.value = current3DType; }
     }
     function hide3DTypeTabs() {
-      document.querySelectorAll('.tab-3dtype').forEach(b => ((b as HTMLElement).style.display = 'none'));
+      const sel = document.getElementById('prnd-3dtype') as HTMLSelectElement | null;
+      if (sel) sel.style.display = 'none';
+    }
+
+    function switch3DType(type: 'bar' | 'surface' | 'line') {
+      if (current3DType === type) return;
+      current3DType = type;
+      if (currentMode === '3d' && chart3D) {
+        // ECharts GL 不支持同一实例切换 series 类型, 必须 dispose + re-init
+        const filtered = activeDays ? filterByDays(rawData, activeDays) : rawData;
+        chart3D.dispose();
+        chart3D = echarts.init(container3D, 'dark');
+        chart3D.setOption(build3DOption(filtered));
+      }
+      show3DTypeTabs();
     }
 
     function switchToTrend() {
@@ -653,13 +665,13 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       });
     });
 
-    // ── 3D 类型子切换按钮 ──
-    document.querySelectorAll('.tab-3dtype[data-3dtype]').forEach(btn => {
-      (btn as HTMLElement).addEventListener('click', function () {
-        const type = this.dataset['3dtype'] as 'bar' | 'surface' | 'line';
-        switch3DType(type);
+    // ── 3D 类型下拉框 ──
+    const sel3d = document.getElementById('prnd-3dtype') as HTMLSelectElement | null;
+    if (sel3d) {
+      sel3d.addEventListener('change', function () {
+        switch3DType(this.value as 'bar' | 'surface' | 'line');
       });
-    });
+    }
 
     // ── 窗口 resize ──
     window.addEventListener('resize', () => {
