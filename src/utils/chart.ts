@@ -293,71 +293,6 @@ function buildBar3DOption(rawData: ChartData) {
   };
 }
 
-/** 构建 3D 曲面图配置 */
-function buildSurfaceOption(rawData: ChartData) {
-  const data = sampleData(rawData, 60);
-  const { dates, metal, oxide, waste } = data;
-
-  // 在3个品种间线性插值到9行, 让曲面有足够密度呈现起伏
-  const TOTAL = 9;
-  const surfData: number[][] = [];
-  const yLabels: string[] = [];
-  const half = Math.floor((TOTAL - 1) / 2);
-  for (let r = 0; r < TOTAL; r++) {
-    const row: number[] = [];
-    const t = r / (TOTAL - 1);
-    for (let c = 0; c < dates.length; c++) {
-      if (t <= 0.5) row.push(metal[c] + (oxide[c] - metal[c]) * (t / 0.5));
-      else row.push(oxide[c] + (waste[c] - oxide[c]) * ((t - 0.5) / 0.5));
-    }
-    surfData.push(row);
-    if (r === 0) yLabels.push('金属镨钕');
-    else if (r === half) yLabels.push('氧化镨钕');
-    else if (r === TOTAL - 1) yLabels.push('废料镨钕');
-    else yLabels.push('');
-  }
-
-  // 计算全局 min/max
-  let vMin = Infinity, vMax = -Infinity;
-  for (const row of surfData) for (const v of row) { if (v < vMin) vMin = v; if (v > vMax) vMax = v; }
-
-  return {
-    tooltip: {
-      confine: true, backgroundColor: 'rgba(15,23,42,0.95)', borderColor: '#334155',
-      textStyle: { color: '#e2e8f0', fontSize: 13 },
-    },
-    visualMap: {
-      min: vMin, max: vMax, calculable: true,
-      inRange: { color: ['#1e3a5f', '#2563eb', '#f97316', '#fbbf24'] },
-      show: true, orient: 'horizontal', left: 'center', bottom: 5,
-      textStyle: { color: '#94a3b8', fontSize: 10 },
-    },
-    grid3D: {
-      boxWidth: Math.min(180, dates.length * 3), boxDepth: 100, boxHeight: 70,
-      viewControl: { autoRotate: false, distance: 160, alpha: 28, beta: 40, animation: false },
-      light: { main: { intensity: 1.2, alpha: 35, beta: 30 }, ambient: { intensity: 0.5 } },
-    },
-    xAxis3D: {
-      type: 'category', data: dates,
-      axisLabel: { fontSize: 9, color: '#94a3b8', interval: Math.max(1, Math.floor(dates.length / 12)), formatter: (v: string) => v.slice(5) },
-      axisLine: { lineStyle: { color: '#334155' } },
-    },
-    yAxis3D: {
-      type: 'category', data: yLabels,
-      axisLabel: { fontSize: 10, color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } },
-    },
-    zAxis3D: {
-      type: 'value',
-      axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
-      splitLine: { lineStyle: { color: '#1e293b' } },
-    },
-    series: [{
-      type: 'surface', data: surfData, shading: 'lambert',
-      wireframe: { show: true, lineStyle: { color: 'rgba(148,163,184,0.12)', width: 0.5 } },
-    }],
-  };
-}
-
 /** 构建 3D 折线图配置 */
 function buildLine3DOption(rawData: ChartData) {
   const data = sampleData(rawData);
@@ -447,10 +382,9 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     let isTabClicking = false;
     let chart3D: any = null;
     let activeDays: number | null = 30; // null=全部, 7/30/90
-    let current3DType: 'bar' | 'surface' | 'line' = 'bar';
+    let current3DType: 'bar' | 'line' = 'bar';
 
     function build3DOption(data: ChartData) {
-      if (current3DType === 'surface') return buildSurfaceOption(data);
       if (current3DType === 'line') return buildLine3DOption(data);
       return buildBar3DOption(data);
     }
@@ -498,7 +432,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       if (sel) sel.style.display = 'none';
     }
 
-    function switch3DType(type: 'bar' | 'surface' | 'line') {
+    function switch3DType(type: 'bar' | 'line') {
       if (current3DType === type) return;
       current3DType = type;
       if (currentMode === '3d' && chart3D) {
@@ -689,7 +623,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     const sel3d = document.getElementById('prnd-3dtype') as HTMLSelectElement | null;
     if (sel3d) {
       sel3d.addEventListener('change', function () {
-        switch3DType(this.value as 'bar' | 'surface' | 'line');
+        switch3DType(this.value as 'bar' | 'line');
       });
     }
 
