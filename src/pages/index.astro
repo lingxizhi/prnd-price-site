@@ -56,6 +56,7 @@ const compactCards = [
     <div class="overlay-top">
       <div class="overlay-brand">
         <span class="brand-title">镨钕价格监控</span>
+        <button class="tab tab-mode" data-range="3d">3D</button>
       </div>
       <div class="overlay-cards">
         <span class="mini-date">{fmtDate(latest.date)}</span>
@@ -99,7 +100,6 @@ const compactCards = [
         <button class="tab active" data-range="30">30天</button>
         <button class="tab" data-range="90">90天</button>
         <button class="tab" data-range="compare">对比</button>
-        <button class="tab tab-3d" data-range="3d">3D</button>
       </div>
     </div>
 
@@ -303,6 +303,20 @@ const compactCards = [
       background: #334155;
       color: #e2e8f0;
       border-color: #475569;
+    }
+    /* 3D 模式激活态 */
+    .tab.active-mode {
+      background: #f97316;
+      color: #fff;
+      border-color: #f97316;
+      font-weight: 700;
+    }
+    /* logo 旁的模式按钮 */
+    .tab-mode {
+      font-size: 0.68rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
     }
 
     /* 右下角信息 */

@@ -1,16 +1,18 @@
 /**
  * ECharts 价格走势图模块
- * - 动态加载 ECharts CDN（仅一次）
- * - 带 SRI 完整性校验
+ * - 动态加载 ECharts CDN（仅一次），带 SRI 校验
  * - 动态加载 ECharts GL CDN（3D 模式按需加载）
- * - 支持趋势图、年份对比图、3D 柱状图三种模式
+ * - 2D 趋势图 / 年份对比图 / 3D 柱状图，三种模式
+ * - 3D 模式替代 2D 显示（同一区域叠加切换）
+ * - Cookie 持久化模式选择
+ * - 日期范围按钮同时影响 2D 和 3D
  */
 
 const ECHARTS_CDN = 'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js';
 const ECHARTS_SRI = 'sha384-Mx5lkUEQPM1pOJCwFtUICyX45KNojXbkWdYhkKUKsbv391mavbfoAmONbzkgYPzR';
-// unpkg 为主（Cloudflare CDN，国内移动端兼容性更好），jsdelivr 为兜底
-const ECHARTS_GL_CDN_PRIMARY = 'https://unpkg.com/echarts-gl@2.0.9/dist/echarts-gl.min.js';
-const ECHARTS_GL_CDN_FALLBACK = 'https://cdn.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js';
+const ECHARTS_GL_PRIMARY = 'https://unpkg.com/echarts-gl@2.0.9/dist/echarts-gl.min.js';
+const ECHARTS_GL_FALLBACK = 'https://cdn.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js';
+const COOKIE_KEY = 'prnd-chart-mode';
 
 interface ChartData {
   dates: string[];
@@ -27,11 +29,12 @@ interface CompareData {
   waste: number[][];
 }
 
+// ── 单例加载 ──
+
 let echartsLib: any = null;
 let loadPromise: Promise<any> | null = null;
 let echartsGlLoaded = false;
 
-/** 加载 ECharts（单例，带 SRI） */
 function loadECharts(): Promise<any> {
   if (echartsLib) return Promise.resolve(echartsLib);
   if (loadPromise) return loadPromise;
@@ -45,17 +48,13 @@ function loadECharts(): Promise<any> {
     script.src = ECHARTS_CDN;
     script.integrity = ECHARTS_SRI;
     script.crossOrigin = 'anonymous';
-    script.onload = () => {
-      echartsLib = (window as any).echarts;
-      resolve(echartsLib);
-    };
+    script.onload = () => { echartsLib = (window as any).echarts; resolve(echartsLib); };
     script.onerror = () => reject(new Error('ECharts CDN load failed'));
     document.head.appendChild(script);
   });
   return loadPromise;
 }
 
-/** 加载 ECharts GL（按需加载，带超时和 CDN 容灾） */
 function loadEChartsGL(timeoutMs = 15000): Promise<void> {
   if (echartsGlLoaded) return Promise.resolve();
 
@@ -63,596 +62,472 @@ function loadEChartsGL(timeoutMs = 15000): Promise<void> {
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
       script.src = url;
-      const timer = setTimeout(() => {
-        script.remove();
-        reject(new Error(`CDN timeout: ${url}`));
-      }, timeoutMs);
-      script.onload = () => {
-        clearTimeout(timer);
-        echartsGlLoaded = true;
-        resolve();
-      };
-      script.onerror = () => {
-        clearTimeout(timer);
-        script.remove();
-        reject(new Error(`CDN load failed: ${url}`));
-      };
+      const timer = setTimeout(() => { script.remove(); reject(new Error(`CDN timeout: ${url}`)); }, timeoutMs);
+      script.onload = () => { clearTimeout(timer); echartsGlLoaded = true; resolve(); };
+      script.onerror = () => { clearTimeout(timer); script.remove(); reject(new Error(`CDN load failed: ${url}`)); };
       document.head.appendChild(script);
     });
   }
 
-  // 先尝试 unpkg，失败则回退 jsdelivr
-  return tryLoad(ECHARTS_GL_CDN_PRIMARY).catch(() =>
-    tryLoad(ECHARTS_GL_CDN_FALLBACK)
-  );
+  return tryLoad(ECHARTS_GL_PRIMARY).catch(() => tryLoad(ECHARTS_GL_FALLBACK));
 }
 
-/** 数据采样（3D 图表降采样用，超过 maxPoints 时均匀采样） */
+// ── Cookie ──
+
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+function setCookie(name: string, value: string, days = 365) {
+  const d = new Date();
+  d.setTime(d.getTime() + days * 86400000);
+  document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`;
+}
+
+// ── 数据工具 ──
+
 function sampleData(data: ChartData, maxPoints = 120): ChartData {
   const { dates, metal, oxide, waste } = data;
   if (dates.length <= maxPoints) return data;
 
   const step = Math.ceil(dates.length / maxPoints);
-  const sampledDates: string[] = [];
-  const sampledMetal: number[] = [];
-  const sampledOxide: number[] = [];
-  const sampledWaste: number[] = [];
-
+  const sDates: string[] = [], sMetal: number[] = [], sOxide: number[] = [], sWaste: number[] = [];
   for (let i = 0; i < dates.length; i += step) {
-    sampledDates.push(dates[i]);
-    sampledMetal.push(metal[i]);
-    sampledOxide.push(oxide[i]);
-    sampledWaste.push(waste[i]);
+    sDates.push(dates[i]); sMetal.push(metal[i]); sOxide.push(oxide[i]); sWaste.push(waste[i]);
   }
   const last = dates.length - 1;
-  if (sampledDates[sampledDates.length - 1] !== dates[last]) {
-    sampledDates.push(dates[last]);
-    sampledMetal.push(metal[last]);
-    sampledOxide.push(oxide[last]);
-    sampledWaste.push(waste[last]);
+  if (sDates[sDates.length - 1] !== dates[last]) {
+    sDates.push(dates[last]); sMetal.push(metal[last]); sOxide.push(oxide[last]); sWaste.push(waste[last]);
   }
-  return { dates: sampledDates, metal: sampledMetal, oxide: sampledOxide, waste: sampledWaste };
+  return { dates: sDates, metal: sMetal, oxide: sOxide, waste: sWaste };
 }
 
-/** 构建年份对比图配置 */
+function filterByDays(data: ChartData, days: number): ChartData {
+  const len = data.dates.length;
+  const parseDateStr = (s: string) => { const [y, m, d] = s.split('.').map(Number); return new Date(y, m - 1, d).getTime(); };
+  const latestMs = parseDateStr(data.dates[len - 1]);
+  const msPerDay = 86400000;
+  let startIdx = 0;
+  for (let i = len - 1; i >= 0; i--) {
+    if ((latestMs - parseDateStr(data.dates[i])) / msPerDay > days) { startIdx = i + 1; break; }
+  }
+  return {
+    dates: data.dates.slice(startIdx), metal: data.metal.slice(startIdx),
+    oxide: data.oxide.slice(startIdx), waste: data.waste.slice(startIdx),
+  };
+}
+
+// ── 构建 2D 图表配置 ──
+
 function buildCompareOption(data: CompareData) {
   const { labels, years, metal } = data;
-  // 年份配色
   const colors = ['#f97316', '#38bdf8', '#a78bfa', '#22c55e', '#ef4444', '#eab308'];
-  
   const series = years.map((year, i) => ({
-    name: `${year}年`,
-    type: 'line' as const,
-    data: metal[i],
-    smooth: true,
-    symbol: 'circle',
-    symbolSize: 2,
-    showSymbol: false,
+    name: `${year}年`, type: 'line' as const, data: metal[i], smooth: true,
+    symbol: 'circle', symbolSize: 2, showSymbol: false,
     lineStyle: { width: 2.5, color: colors[i % colors.length] },
     itemStyle: { color: colors[i % colors.length] },
   }));
 
   return {
     backgroundColor: 'transparent',
-    title: {
-      text: `金属镨钕 年份对比`,
-      bottom: -5,
-      left: 'center',
-      textStyle: { color: '#94a3b8', fontSize: 12, fontWeight: 'normal' }
-    },
+    title: { text: '金属镨钕 年份对比', bottom: -5, left: 'center', textStyle: { color: '#94a3b8', fontSize: 12, fontWeight: 'normal' } },
     tooltip: {
-      trigger: 'axis',
-      confine: true, // 防移动端溢出
-      backgroundColor: 'rgba(15,23,42,0.95)',
-      borderColor: '#334155',
-      textStyle: { color: '#e2e8f0', fontSize: 13 },
+      trigger: 'axis', confine: true,
+      backgroundColor: 'rgba(15,23,42,0.95)', borderColor: '#334155', textStyle: { color: '#e2e8f0', fontSize: 13 },
       formatter(params: any[]) {
         let s = `<b>${params[0].axisValue}</b><br/>`;
         for (const p of params) {
-          if (p.value !== null && p.value !== undefined && p.value !== '-') {
+          if (p.value !== null && p.value !== undefined && p.value !== '-')
             s += `${p.marker} ${p.seriesName}：<b>${Number(p.value).toLocaleString()}</b> 元/吨<br/>`;
-          }
         }
         return s;
-      }
+      },
     },
     legend: {
-      data: series.map(s => s.name),
-      top: 58,
-      left: 'center',
-      type: 'scroll', // 移动端多图例滚动
+      data: series.map(s => s.name), top: 58, left: 'center', type: 'scroll',
       textStyle: { color: '#94a3b8', fontSize: 12 },
-      selected: years.reduce((acc, y, i) => {
-        // 默认只显示最近两年
-        acc[`${y}年`] = i >= years.length - 2;
-        return acc;
-      }, {} as Record<string, boolean>)
+      selected: years.reduce((acc, y, i) => { acc[`${y}年`] = i >= years.length - 2; return acc; }, {} as Record<string, boolean>),
     },
     grid: { left: 75, right: 75, top: 80, bottom: 45 },
     xAxis: {
-      type: 'category',
-      data: labels,
-      boundaryGap: false,
+      type: 'category', data: labels, boundaryGap: false,
       axisLabel: { rotate: 0, fontSize: 10, color: '#64748b', interval: Math.max(1, Math.floor(labels.length / 12)) },
-      axisLine: { lineStyle: { color: '#1e293b' } },
-      axisTick: { show: false }
+      axisLine: { lineStyle: { color: '#1e293b' } }, axisTick: { show: false },
     },
     yAxis: {
-      type: 'value',
-      name: '元/吨',
-      nameTextStyle: { color: '#64748b', fontSize: 11 },
+      type: 'value', name: '元/吨', nameTextStyle: { color: '#64748b', fontSize: 11 },
       axisLabel: { color: '#64748b', fontSize: 11, formatter: (v: number) => (v / 10000).toFixed(0) + '万' },
-      splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
-      scale: true
+      splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } }, scale: true,
     },
     series,
     media: [
-      {
-        query: { maxWidth: 500 }, // 小屏专属优化
-        option: {
-          grid: { left: 55, right: 55, top: 100, bottom: 45 },
-          xAxis: { axisLabel: { fontSize: 9 } }
-        }
-      },
-      {
-        option: {
-          grid: { left: 75, right: 75, top: 80, bottom: 45 }
-        }
-      }
-    ]
+      { query: { maxWidth: 500 }, option: { grid: { left: 55, right: 55, top: 100, bottom: 45 }, xAxis: { axisLabel: { fontSize: 9 } } } },
+      { option: { grid: { left: 75, right: 75, top: 80, bottom: 45 } } },
+    ],
   };
 }
 
 function buildOption(data: ChartData) {
   const { dates, metal, oxide, waste } = data;
-  
-  const markPointConfig = {
+  const mkPt = {
     data: [
-      { type: 'max', name: '最高', label: { formatter: (p: any) => (p.value/10000).toFixed(1) + 'w', color: '#fff', fontSize: 10 } },
-      { type: 'min', name: '最低', label: { formatter: (p: any) => (p.value/10000).toFixed(1) + 'w', color: '#fff', fontSize: 10 } }
-    ]
+      { type: 'max', name: '最高', label: { formatter: (p: any) => (p.value / 10000).toFixed(1) + 'w', color: '#fff', fontSize: 10 } },
+      { type: 'min', name: '最低', label: { formatter: (p: any) => (p.value / 10000).toFixed(1) + 'w', color: '#fff', fontSize: 10 } },
+    ],
   };
-  const markLineConfig = {
-    silent: true, // 禁用均值线的点击/悬停交互（不响应鼠标事件）
-    data: [{ type: 'average', name: '平均值' }],
-    label: { formatter: '均值' },
-    lineStyle: { type: 'dashed', color: '#94a3b8' }
-  };
+  const mkLn = { silent: true, data: [{ type: 'average', name: '平均值' }], label: { formatter: '均值' }, lineStyle: { type: 'dashed', color: '#94a3b8' } };
 
   return {
     backgroundColor: 'transparent',
-    title: {
-      text: '', // 动态更新
-      bottom: -5,
-      left: 'center',
-      textStyle: { color: '#94a3b8', fontSize: 12, fontWeight: 'normal' }
-    },
+    title: { text: '', bottom: -5, left: 'center', textStyle: { color: '#94a3b8', fontSize: 12, fontWeight: 'normal' } },
     tooltip: {
-      trigger: 'axis',
-      confine: true, // 防移动端溢出
-      axisPointer: { type: 'line', label: { backgroundColor: '#1e293b' } },
-      backgroundColor: 'rgba(15,23,42,0.95)',
-      borderColor: '#334155',
-      textStyle: { color: '#e2e8f0', fontSize: 13 },
+      trigger: 'axis', confine: true, axisPointer: { type: 'line', label: { backgroundColor: '#1e293b' } },
+      backgroundColor: 'rgba(15,23,42,0.95)', borderColor: '#334155', textStyle: { color: '#e2e8f0', fontSize: 13 },
       formatter(params: any[]) {
         let s = `<b>${params[0].axisValue}</b><br/>`;
-        for (const p of params) {
-          if (p.value !== '-') {
-            s += `${p.marker} ${p.seriesName}：<b>${Number(p.value).toLocaleString()}</b> 元/吨<br/>`;
-          }
-        }
+        for (const p of params) { if (p.value !== '-') s += `${p.marker} ${p.seriesName}：<b>${Number(p.value).toLocaleString()}</b> 元/吨<br/>`; }
         return s;
-      }
+      },
     },
-    legend: {
-      data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
-      top: 58, 
-      left: 'center',
-      textStyle: { color: '#94a3b8', fontSize: 12 },
-      selected: { '氧化镨钕': false, '废料镨钕': false }
-    },
-    dataZoom: [
-      { 
-        type: 'slider', 
-        show: true, 
-        bottom: 25, 
-        height: 20, 
-        borderColor: '#334155', 
-        textStyle: { color: '#f8fafc', fontSize: 11 },
-        labelFormatter: function (value: number) {
-          return dates[value] || '';
-        },
-        handleSize: '120%',
-        handleStyle: { color: '#94a3b8', shadowBlur: 3, shadowColor: 'rgba(0,0,0,0.5)', shadowOffsetX: 1, shadowOffsetY: 1 },
-        fillerColor: 'rgba(148,163,184,0.2)',
-        dataBackground: { lineStyle: { color: '#475569' }, areaStyle: { color: '#1e293b' } }
-      }
-    ],
+    legend: { data: ['金属镨钕', '氧化镨钕', '废料镨钕'], top: 58, left: 'center', textStyle: { color: '#94a3b8', fontSize: 12 }, selected: { '氧化镨钕': false, '废料镨钕': false } },
+    dataZoom: [{
+      type: 'slider', show: true, bottom: 25, height: 20, borderColor: '#334155',
+      textStyle: { color: '#f8fafc', fontSize: 11 },
+      labelFormatter(v: number) { return dates[v] || ''; },
+      handleSize: '120%', handleStyle: { color: '#94a3b8', shadowBlur: 3, shadowColor: 'rgba(0,0,0,0.5)', shadowOffsetX: 1, shadowOffsetY: 1 },
+      fillerColor: 'rgba(148,163,184,0.2)', dataBackground: { lineStyle: { color: '#475569' }, areaStyle: { color: '#1e293b' } },
+    }],
     xAxis: {
       type: 'category', data: dates, boundaryGap: false,
       axisLabel: { rotate: 30, fontSize: 10, color: '#64748b', hideOverlap: true },
-      axisLine: { lineStyle: { color: '#1e293b' } },
-      axisTick: { show: false }
+      axisLine: { lineStyle: { color: '#1e293b' } }, axisTick: { show: false },
     },
     yAxis: {
-      type: 'value', name: '元/吨',
-      nameTextStyle: { color: '#64748b', fontSize: 11 },
+      type: 'value', name: '元/吨', nameTextStyle: { color: '#64748b', fontSize: 11 },
       axisLabel: { color: '#64748b', fontSize: 11, formatter: (v: number) => (v / 10000).toFixed(0) + '万' },
-      splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
-      scale: true
+      splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } }, scale: true,
     },
     series: [
-      {
-        name: '金属镨钕', type: 'line', data: metal, smooth: true,
-        symbol: 'circle', symbolSize: 4, showSymbol: false,
-        lineStyle: { width: 2.5, color: '#f97316' }, itemStyle: { color: '#f97316' },
-        markPoint: markPointConfig, markLine: markLineConfig,
-        areaStyle: { color: new (window as any).echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(249,115,22,0.2)' }, { offset: 1, color: 'rgba(249,115,22,0)' }])}
-      },
-      {
-        name: '氧化镨钕', type: 'line', data: oxide, smooth: true,
-        symbol: 'circle', symbolSize: 4, showSymbol: false,
-        lineStyle: { width: 2.5, color: '#38bdf8' }, itemStyle: { color: '#38bdf8' },
-        markPoint: markPointConfig, markLine: markLineConfig,
-        areaStyle: { color: new (window as any).echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(56,189,248,0.15)' }, { offset: 1, color: 'rgba(56,189,248,0)' }])}
-      },
-      {
-        name: '废料镨钕', type: 'line', data: waste, smooth: true,
-        symbol: 'circle', symbolSize: 4, showSymbol: false,
-        lineStyle: { width: 2.5, color: '#a78bfa' }, itemStyle: { color: '#a78bfa' },
-        markPoint: markPointConfig, markLine: markLineConfig,
-        areaStyle: { color: new (window as any).echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(167,139,250,0.15)' }, { offset: 1, color: 'rgba(167,139,250,0)' }])}
-      }
+      { name: '金属镨钕', type: 'line', data: metal, smooth: true, symbol: 'circle', symbolSize: 4, showSymbol: false, lineStyle: { width: 2.5, color: '#f97316' }, itemStyle: { color: '#f97316' }, markPoint: mkPt, markLine: mkLn, areaStyle: { color: new (window as any).echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(249,115,22,0.2)' }, { offset: 1, color: 'rgba(249,115,22,0)' }]) } },
+      { name: '氧化镨钕', type: 'line', data: oxide, smooth: true, symbol: 'circle', symbolSize: 4, showSymbol: false, lineStyle: { width: 2.5, color: '#38bdf8' }, itemStyle: { color: '#38bdf8' }, markPoint: mkPt, markLine: mkLn, areaStyle: { color: new (window as any).echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(56,189,248,0.15)' }, { offset: 1, color: 'rgba(56,189,248,0)' }]) } },
+      { name: '废料镨钕', type: 'line', data: waste, smooth: true, symbol: 'circle', symbolSize: 4, showSymbol: false, lineStyle: { width: 2.5, color: '#a78bfa' }, itemStyle: { color: '#a78bfa' }, markPoint: mkPt, markLine: mkLn, areaStyle: { color: new (window as any).echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(167,139,250,0.15)' }, { offset: 1, color: 'rgba(167,139,250,0)' }]) } },
     ],
     grid: { left: 75, right: 75, top: 80, bottom: 65 },
-    media: [
-      {
-        query: { maxWidth: 500 }, // 小屏专属优化
-        option: {
-          grid: { left: 55, right: 55, top: 100, bottom: 70 }
-        }
-      }
-    ]
+    media: [{ query: { maxWidth: 500 }, option: { grid: { left: 55, right: 55, top: 100, bottom: 70 } } }],
   };
 }
 
-/** 构建 3D 柱状图配置 */
+// ── 构建 3D 柱状图配置 ──
+
 function buildBar3DOption(rawData: ChartData) {
   const data = sampleData(rawData);
   const { dates, metal, oxide, waste } = data;
 
   const seriesData: [number, number, number][] = [];
-  dates.forEach((_, i) => {
-    seriesData.push([i, 0, metal[i]]);
-    seriesData.push([i, 1, oxide[i]]);
-    seriesData.push([i, 2, waste[i]]);
-  });
+  dates.forEach((_, i) => { seriesData.push([i, 0, metal[i]], [i, 1, oxide[i]], [i, 2, waste[i]]); });
 
   return {
-    backgroundColor: 'transparent',
     tooltip: {
-      confine: true,
-      backgroundColor: 'rgba(15,23,42,0.95)',
-      borderColor: '#334155',
+      confine: true, backgroundColor: 'rgba(15,23,42,0.95)', borderColor: '#334155',
       textStyle: { color: '#e2e8f0', fontSize: 13 },
       formatter(params: any) {
         const x = dates[params.value[0]];
-        const names = ['金属镨钕', '氧化镨钕', '废料镨钕'];
-        const y = names[params.value[1]] || '';
-        const z = Number(params.value[2]).toLocaleString();
-        return `<b>${x}</b><br/>${y}：<b>${z}</b> 元/吨`;
+        const y = ['金属镨钕', '氧化镨钕', '废料镨钕'][params.value[1]] || '';
+        return `<b>${x}</b><br/>${y}：<b>${Number(params.value[2]).toLocaleString()}</b> 元/吨`;
       },
     },
     visualMap: {
       dimension: 1,
-      pieces: [
-        { min: 0, max: 0, color: '#f97316' },
-        { min: 1, max: 1, color: '#38bdf8' },
-        { min: 2, max: 2, color: '#a78bfa' },
-      ],
+      pieces: [{ min: 0, max: 0, color: '#f97316' }, { min: 1, max: 1, color: '#38bdf8' }, { min: 2, max: 2, color: '#a78bfa' }],
       show: false,
     },
     grid3D: {
-      boxWidth: Math.min(200, dates.length * 3.5),
-      boxDepth: 60,
-      viewControl: {
-        autoRotate: true,
-        autoRotateSpeed: 6,
-        distance: 180,
-        alpha: 28,
-        beta: 40,
-        animation: true,
-        animationDurationUpdate: 1000,
-        animationEasingUpdate: 'cubicInOut',
-      },
-      light: {
-        main: { intensity: 1.2, shadow: true, shadowQuality: 'medium', alpha: 35, beta: 30 },
-        ambient: { intensity: 0.5 },
-      },
-      postEffect: {
-        enable: true,
-        bloom: { enable: false },
-        SSAO: { enable: true, quality: 'medium', radius: 2, intensity: 0.8 },
-      },
-      environment: '#0f172a',
+      boxWidth: Math.min(180, dates.length * 3), boxDepth: 50, boxHeight: 80,
+      viewControl: { autoRotate: true, autoRotateSpeed: 6, distance: 180, alpha: 30, beta: 40, animation: false },
+      light: { main: { intensity: 1.2, alpha: 35, beta: 30 }, ambient: { intensity: 0.6 } },
     },
     xAxis3D: {
-      type: 'category',
-      data: dates,
-      name: '',
-      axisLabel: {
-        fontSize: 9,
-        color: '#64748b',
-        interval: Math.max(1, Math.floor(dates.length / 15)),
-        formatter: (v: string) => v.slice(5),
-      },
+      type: 'category', data: dates,
+      axisLabel: { fontSize: 9, color: '#94a3b8', interval: Math.max(1, Math.floor(dates.length / 15)), formatter: (v: string) => v.slice(5) },
       axisLine: { lineStyle: { color: '#334155' } },
     },
     yAxis3D: {
-      type: 'category',
-      data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
-      name: '',
-      axisLabel: { fontSize: 11, color: '#94a3b8' },
-      axisLine: { lineStyle: { color: '#334155' } },
+      type: 'category', data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
+      axisLabel: { fontSize: 11, color: '#94a3b8' }, axisLine: { lineStyle: { color: '#334155' } },
     },
     zAxis3D: {
       type: 'value',
-      name: '',
-      axisLabel: {
-        fontSize: 10,
-        color: '#64748b',
-        formatter: (v: number) => (v / 10000).toFixed(1) + 'w',
-      },
+      axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
       splitLine: { lineStyle: { color: '#1e293b' } },
     },
-    series: [
-      {
-        type: 'bar3D',
-        data: seriesData,
-        shading: 'realistic',
-        animationDuration: 1600,
-        animationEasing: 'cubicOut',
-        barSize: Math.max(0.6, Math.min(2, 120 / dates.length)),
-        emphasis: {
-          label: { show: false },
-          itemStyle: { color: '#fbbf24' },
-        },
-        label: { show: false },
-      },
-    ],
+    series: [{
+      type: 'bar3D', data: seriesData, shading: 'lambert',
+      barSize: Math.max(0.5, Math.min(1.8, 100 / dates.length)),
+      emphasis: { itemStyle: { color: '#fbbf24' } }, label: { show: false },
+    }],
   };
 }
+
+// ── 主入口 ──
 
 export async function initChart(containerId: string, rawData: ChartData, compareData?: CompareData | null) {
   const container2D = document.getElementById(containerId);
   if (!container2D) return;
 
-  // 创建 3D 容器
+  // 创建 3D 叠加容器（absolute 定位，与 2D 完全重叠）
   let container3D = document.getElementById(containerId + '-3d');
   if (!container3D) {
     container3D = document.createElement('div');
     container3D.id = containerId + '-3d';
-    container3D.className = 'full-chart';
-    container3D.style.display = 'none';
+    container3D.style.cssText = 'display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:#0f172a;z-index:50';
     container2D.parentElement?.appendChild(container3D);
   }
+
+  // 注入旋转动画样式
+  function injectSpinStyle() {
+    if (!document.getElementById('spin3d-style')) {
+      const style = document.createElement('style');
+      style.id = 'spin3d-style';
+      style.textContent = '@keyframes spin3d{to{transform:rotate(360deg)}}';
+      document.head.appendChild(style);
+    }
+  }
+
+  const LOADING_HTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;"><div style="width:32px;height:32px;border:3px solid #334155;border-top-color:#f97316;border-radius:50%;animation:spin3d 0.8s linear infinite;"></div><span style="color:#94a3b8;font-size:14px;">加载 3D 引擎中...</span></div>';
 
   try {
     const echarts = await loadECharts();
     const chart = echarts.init(container2D, 'dark');
-    
-    // 初始化配置
     chart.setOption(buildOption(rawData));
 
     let currentMode: 'trend' | 'compare' | '3d' = 'trend';
     let isTabClicking = false;
     let chart3D: any = null;
+    let activeDays: number | null = 30; // null=全部, 7/30/90
 
-    // 年份对比模式
+    // ── 辅助：更新 tab 按钮高亮 ──
+    function highlightTab(selector: string) {
+      document.querySelectorAll('.tab.active-mode, .tab.active').forEach(b => b.classList.remove('active-mode', 'active'));
+      const btn = document.querySelector(selector);
+      if (btn) btn.classList.add('active');
+    }
+
+    function highlight3DMode() {
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active-mode', 'active'));
+      // 3D 模式按钮用 active-mode 类
+      document.querySelectorAll('.tab[data-range="3d"]').forEach(b => b.classList.add('active-mode'));
+      // 同时高亮当前日期范围按钮
+      const rangeBtn = document.querySelector(`.tab[data-range="${activeDays ?? 'all'}"]`);
+      if (rangeBtn) rangeBtn.classList.add('active');
+    }
+
+    // ── 模式切换 ──
+
     function switchToCompare() {
       if (!compareData) return;
       currentMode = 'compare';
-      destroy3D();
+      container3D.style.display = 'none';
+      container2D.style.display = '';
+      chart.resize();
       chart.clear();
       chart.setOption(buildCompareOption(compareData), true);
+      setCookie(COOKIE_KEY, '2d');
     }
 
     function switchToTrend() {
       currentMode = 'trend';
-      destroy3D();
+      container3D.style.display = 'none';
+      container2D.style.display = '';
+      chart.resize();
       chart.clear();
       chart.setOption(buildOption(rawData), true);
-      updateTitleDateRange();
+
+      // 恢复当前日期范围到 dataZoom
+      if (activeDays) {
+        const len = rawData.dates.length;
+        const parseDateStr = (s: string) => { const [y, m, d] = s.split('.').map(Number); return new Date(y, m - 1, d).getTime(); };
+        const latestMs = parseDateStr(rawData.dates[len - 1]);
+        let startIdx = 0;
+        for (let i = len - 1; i >= 0; i--) {
+          if ((latestMs - parseDateStr(rawData.dates[i])) / 86400000 > activeDays) { startIdx = i + 1; break; }
+        }
+        const startPct = Math.max(0, (startIdx / Math.max(1, len - 1)) * 100);
+        chart.dispatchAction({ type: 'dataZoom', start: startPct, end: 100 });
+      }
+
+      setCookie(COOKIE_KEY, '2d');
+      setTimeout(() => updateTitleDateRange(), 150);
     }
 
     async function switchTo3D() {
       currentMode = '3d';
       container2D.style.display = 'none';
-      // 强制 absolute 定位 + 显式尺寸，确保 echarts-gl 初始化时容器已有正确宽高
-      container3D.style.cssText = 'display:block;position:absolute;top:0;left:0;width:100%;height:100%;background:#0f172a;z-index:50';
-      container3D.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;"><div style="width:32px;height:32px;border:3px solid #334155;border-top-color:#f97316;border-radius:50%;animation:spin3d 0.8s linear infinite;"></div><span style="color:#94a3b8;font-size:14px;">加载 3D 引擎中...</span></div>';
-      if (!document.getElementById('spin3d-style')) {
-        const style = document.createElement('style');
-        style.id = 'spin3d-style';
-        style.textContent = '@keyframes spin3d{to{transform:rotate(360deg)}}';
-        document.head.appendChild(style);
-      }
+      container3D.style.display = 'block';
 
-      try {
-        await loadEChartsGL();
-        // 强制重排：读取 offsetHeight 确保浏览器完成布局计算
-        void container3D.offsetHeight;
+      if (!chart3D) {
+        // 首次加载 3D
+        container3D.innerHTML = LOADING_HTML;
+        injectSpinStyle();
 
-        // 探针验证：bar3D 是否已注册（ECharts 对未注册类型静默失败不抛异常）
-        let bar3dOk = false;
-        const probe = document.createElement('div');
-        probe.style.cssText = 'position:absolute;width:10px;height:10px;left:-9999px;top:-9999px';
-        document.body.appendChild(probe);
         try {
-          const probeChart = echarts.init(probe);
-          probeChart.setOption({
-            grid3D: {},
-            xAxis3D: { type: 'category' as any, data: ['a'] },
-            yAxis3D: { type: 'category' as any, data: ['b'] },
-            zAxis3D: { type: 'value' as any },
-            series: [{ type: 'bar3D' as any, data: [[0, 0, 1]] }],
-          });
-          bar3dOk = !!probe.querySelector('canvas');
-          probeChart.dispose();
-        } catch { /* probe failed */ }
-        probe.remove();
+          await loadEChartsGL();
+          void container3D.offsetHeight; // 强制重排
 
-        if (!bar3dOk) {
-          throw new Error('bar3D 组件未成功注册（echarts-gl 可能不兼容当前环境）');
-        }
+          // 探针验证 bar3D 已注册
+          let bar3dOk = false;
+          const probe = document.createElement('div');
+          probe.style.cssText = 'position:absolute;width:10px;height:10px;left:-9999px;top:-9999px';
+          document.body.appendChild(probe);
+          try {
+            const probeChart = echarts.init(probe);
+            probeChart.setOption({ grid3D: {}, xAxis3D: { type: 'category', data: ['a'] }, yAxis3D: { type: 'category', data: ['b'] }, zAxis3D: { type: 'value' }, series: [{ type: 'bar3D', data: [[0, 0, 1]] }] });
+            bar3dOk = !!probe.querySelector('canvas');
+            probeChart.dispose();
+          } catch { /* ignore */ }
+          probe.remove();
 
-        if (chart3D) { chart3D.dispose(); chart3D = null; }
-        chart3D = echarts.init(container3D, 'dark');
-        chart3D.setOption(buildBar3DOption(rawData));
-      } catch (err) {
-        console.error('3D init failed:', err);
-        const errMsg = err instanceof Error ? err.message : '未知错误';
-        container3D.innerHTML =
-          '<p style="text-align:center;color:#94a3b8;padding:60px;">3D 加载失败<br/><span style="font-size:12px;color:#64748b;">' + errMsg + '</span></p>';
-        // 3 秒后自动切回 2D
-        setTimeout(() => {
-          chart.resize();
-          currentMode = 'trend';
-          container2D.style.display = '';
-          container3D.style.display = 'none';
-          const activeBtn = document.querySelector('.chart-tabs .tab.active');
-          if (activeBtn) {
-            activeBtn.classList.remove('active');
-            const btn30 = document.querySelector('.chart-tabs .tab[data-range="30"]');
-            if (btn30) btn30.classList.add('active');
+          if (!bar3dOk) throw new Error('bar3D 组件未成功注册');
+
+          const filtered = activeDays ? filterByDays(rawData, activeDays) : rawData;
+          chart3D = echarts.init(container3D, 'dark');
+          chart3D.setOption(buildBar3DOption(filtered));
+
+          // 监听 3D 容器 resize
+          if (!(window as any).__prnd3dResizeBound) {
+            (window as any).__prnd3dResizeBound = true;
+            window.addEventListener('resize', () => { if (chart3D && currentMode === '3d') chart3D.resize(); });
           }
-        }, 3500);
+        } catch (err) {
+          console.error('3D init failed:', err);
+          const errMsg = err instanceof Error ? err.message : '未知错误';
+          container3D.innerHTML = `<p style="text-align:center;color:#94a3b8;padding:60px;">3D 加载失败<br/><span style="font-size:12px;color:#64748b;">${errMsg}</span></p>`;
+          setTimeout(() => switchToTrend(), 3500);
+          return;
+        }
+      } else {
+        // 已加载过，直接显示并更新数据
+        const filtered = activeDays ? filterByDays(rawData, activeDays) : rawData;
+        chart3D.setOption(buildBar3DOption(filtered), true);
+        chart3D.resize();
+      }
+
+      setCookie(COOKIE_KEY, '3d');
+      highlight3DMode();
+    }
+
+    // 3D 模式下更新日期范围
+    function update3DRange(days: number | null) {
+      activeDays = days;
+      if (currentMode === '3d' && chart3D) {
+        const filtered = days ? filterByDays(rawData, days) : rawData;
+        chart3D.setOption(buildBar3DOption(filtered), true);
+      }
+      // 同时更新 2D 的 dataZoom（以便切回时保持一致）
+      if (currentMode !== '3d') {
+        const len = rawData.dates.length;
+        const parseDateStr = (s: string) => { const [y, m, d] = s.split('.').map(Number); return new Date(y, m - 1, d).getTime(); };
+        const latestMs = parseDateStr(rawData.dates[len - 1]);
+        if (days) {
+          let startIdx = 0;
+          for (let i = len - 1; i >= 0; i--) {
+            if ((latestMs - parseDateStr(rawData.dates[i])) / 86400000 > days) { startIdx = i + 1; break; }
+          }
+          const startPct = Math.max(0, (startIdx / Math.max(1, len - 1)) * 100);
+          chart.dispatchAction({ type: 'dataZoom', start: startPct, end: 100 });
+        } else {
+          chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
+        }
       }
     }
 
-    function destroy3D() {
-      if (chart3D) {
-        chart3D.dispose();
-        chart3D = null;
-      }
-      container2D.style.display = '';
-      container3D.style.cssText = 'display:none';
-    }
+    // ── 2D dataZoom 标题更新 ──
 
-    // 动态更新底部的当前日期区间
     const updateTitleDateRange = () => {
       if (currentMode !== 'trend') return;
       const opt = chart.getOption();
       if (!opt.dataZoom || !opt.dataZoom.length) return;
-      const dz = opt.dataZoom[0]; 
+      const dz = opt.dataZoom[0];
       const len = rawData.dates.length;
-      let startIdx = 0, endIdx = len - 1;
-      
-      if (dz.startValue !== undefined && dz.endValue !== undefined) {
-        startIdx = Math.max(0, dz.startValue);
-        endIdx = Math.min(len - 1, dz.endValue);
-      } else {
-        startIdx = Math.floor((dz.start || 0) / 100 * (len - 1));
-        endIdx = Math.ceil((dz.end || 100) / 100 * (len - 1));
-      }
-      const sDate = rawData.dates[startIdx];
-      const eDate = rawData.dates[endIdx];
-      
-      chart.setOption({
-        title: { text: `数据区间: ${sDate} 至 ${eDate}` }
-      });
+      let sI = 0, eI = len - 1;
+      if (dz.startValue !== undefined && dz.endValue !== undefined) { sI = Math.max(0, dz.startValue); eI = Math.min(len - 1, dz.endValue); }
+      else { sI = Math.floor((dz.start || 0) / 100 * (len - 1)); eI = Math.ceil((dz.end || 100) / 100 * (len - 1)); }
+      chart.setOption({ title: { text: `数据区间: ${rawData.dates[sI]} 至 ${rawData.dates[eI]}` } });
     };
 
     chart.on('dataZoom', () => {
       updateTitleDateRange();
-      // 如果不是点击按钮触发的，而是用户手动拖动/缩放，则取消所有按钮的激活状态
-      if (!isTabClicking) {
-        document.querySelectorAll('.chart-tabs .tab').forEach(b => b.classList.remove('active'));
-      }
+      if (!isTabClicking) document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
     });
     updateTitleDateRange();
 
-    // 时间范围切换
-    document.querySelectorAll('.chart-tabs .tab').forEach((btn) => {
+    // ── Tab 按钮事件 ──
+
+    document.querySelectorAll('.tab[data-range]').forEach(btn => {
       (btn as HTMLElement).addEventListener('click', async function () {
         isTabClicking = true;
-        const range = this.dataset.range;
+        const range = this.dataset.range!;
 
-        // 3D 模式
+        // ── 3D 按钮 ──
         if (range === '3d') {
-          document.querySelectorAll('.chart-tabs .tab').forEach(b => b.classList.remove('active'));
-          this.classList.add('active');
-          await switchTo3D();
+          if (currentMode !== '3d') {
+            highlight3DMode();
+            await switchTo3D();
+          }
           isTabClicking = false;
           return;
         }
 
-        // 如果当前在 3D 模式，先切回
-        if (currentMode === '3d') {
-          destroy3D();
-          chart.clear();
-          chart.setOption(buildOption(rawData), true);
-          currentMode = 'trend';
-        }
-
-        document.querySelectorAll('.chart-tabs .tab').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-
+        // ── 对比按钮（仅 2D） ──
         if (range === 'compare') {
+          if (currentMode === '3d') switchToTrend();
+          highlightTab('.tab[data-range="compare"]');
           switchToCompare();
           isTabClicking = false;
           return;
         }
 
-        // 如果当前在对比模式，先切回趋势
-        if (currentMode === 'compare') {
-          switchToTrend();
-        }
-        
-        if (range === 'all') {
-          chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
+        // ── 日期范围按钮（all/7/30/90） ──
+        const days = range === 'all' ? null : parseInt(range);
+        update3DRange(days);
+
+        if (currentMode === '3d') {
+          highlight3DMode();
         } else {
-          const calDays = parseInt(range!);
-          // 按自然日计算：从最新日期往前找 calDays 天内的数据
-          const parseDateStr = (s: string) => {
-            const [y, m, d] = s.split('.').map(Number);
-            return new Date(y, m - 1, d).getTime();
-          };
-          const latestMs = parseDateStr(rawData.dates[rawData.dates.length - 1]);
-          const msPerDay = 86400000;
-          let startIdx = 0;
-          for (let i = rawData.dates.length - 1; i >= 0; i--) {
-            if ((latestMs - parseDateStr(rawData.dates[i])) / msPerDay > calDays) {
-              startIdx = i + 1;
-              break;
-            }
-          }
-          const startPct = Math.max(0, (startIdx / Math.max(1, rawData.dates.length - 1)) * 100);
-          chart.dispatchAction({ type: 'dataZoom', start: startPct, end: 100 });
+          if (currentMode === 'compare') switchToTrend();
+          highlightTab(`.tab[data-range="${range}"]`);
         }
-        // 触发 action 后不会自动调回调，需手动更新一次 title
-        setTimeout(() => {
-          updateTitleDateRange();
-          isTabClicking = false;
-        }, 50); 
+
+        setTimeout(() => { updateTitleDateRange(); isTabClicking = false; }, 100);
       });
     });
 
+    // ── 窗口 resize ──
     window.addEventListener('resize', () => {
-      chart.resize();
-      if (chart3D) chart3D.resize();
+      if (currentMode === '3d' && chart3D) chart3D.resize();
+      else chart.resize();
     });
 
-    // 默认展示近30天
-    setTimeout(() => {
-      const btn30 = document.querySelector('.chart-tabs .tab[data-range="30"]');
-      if (btn30) (btn30 as HTMLElement).click();
-    }, 80);
+    // ── 初始化：检查 Cookie 恢复模式 ──
+    const savedMode = getCookie(COOKIE_KEY);
+
+    if (savedMode === '3d') {
+      // 恢复 3D 模式
+      setTimeout(async () => {
+        highlight3DMode();
+        await switchTo3D();
+      }, 100);
+    } else {
+      // 默认 30 天
+      setTimeout(() => {
+        const btn30 = document.querySelector('.tab[data-range="30"]');
+        if (btn30) (btn30 as HTMLElement).click();
+      }, 80);
+    }
   } catch (err) {
     console.error(err);
-    const container = document.getElementById(containerId);
-    if (container) {
-      container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:60px;">图表加载失败，请刷新页面重试</p>';
-    }
+    const c = document.getElementById(containerId);
+    if (c) c.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:60px;">图表加载失败，请刷新页面重试</p>';
   }
 }
