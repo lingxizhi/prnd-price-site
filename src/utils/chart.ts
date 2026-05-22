@@ -1,9 +1,9 @@
 /**
  * ECharts 价格走势图模块
- * - 动态加载 ECharts CDN（仅一次），带 SRI 校验
+ * - 动态加载 ECharts CDN（仅一次）
+ * - 带 SRI 完整性校验
  * - 动态加载 ECharts GL CDN（3D 模式按需加载）
  * - 支持趋势图、年份对比图、3D 柱状图三种模式
- * - 入场交错动画 + 脉冲标记 + 增强 hover 效果
  */
 
 const ECHARTS_CDN = 'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js';
@@ -25,12 +25,11 @@ interface CompareData {
   waste: number[][];
 }
 
-// ── 单例加载 ──
-
 let echartsLib: any = null;
 let loadPromise: Promise<any> | null = null;
 let echartsGlLoaded = false;
 
+/** 加载 ECharts（单例，带 SRI） */
 function loadECharts(): Promise<any> {
   if (echartsLib) return Promise.resolve(echartsLib);
   if (loadPromise) return loadPromise;
@@ -54,6 +53,7 @@ function loadECharts(): Promise<any> {
   return loadPromise;
 }
 
+/** 加载 ECharts GL（按需加载） */
 function loadEChartsGL(): Promise<void> {
   if (echartsGlLoaded) return Promise.resolve();
   return new Promise((resolve, reject) => {
@@ -73,8 +73,7 @@ function loadEChartsGL(): Promise<void> {
   });
 }
 
-// ── 数据采样（3D 图表降采样用） ──
-
+/** 数据采样（3D 图表降采样用，超过 maxPoints 时均匀采样） */
 function sampleData(data: ChartData, maxPoints = 120): ChartData {
   const { dates, metal, oxide, waste } = data;
   if (dates.length <= maxPoints) return data;
@@ -91,7 +90,6 @@ function sampleData(data: ChartData, maxPoints = 120): ChartData {
     sampledOxide.push(oxide[i]);
     sampledWaste.push(waste[i]);
   }
-  // 确保最后一个点包含在内
   const last = dates.length - 1;
   if (sampledDates[sampledDates.length - 1] !== dates[last]) {
     sampledDates.push(dates[last]);
@@ -102,180 +100,12 @@ function sampleData(data: ChartData, maxPoints = 120): ChartData {
   return { dates: sampledDates, metal: sampledMetal, oxide: sampledOxide, waste: sampledWaste };
 }
 
-// ── 通用增强配置 ──
-
-/** 系列通用动画配置 */
-const ANIM_IN = {
-  animationDuration: 1400,
-  animationEasing: 'cubicOut' as const,
-};
-
-const ANIM_UPDATE = {
-  animationDurationUpdate: 800,
-  animationEasingUpdate: 'cubicInOut' as const,
-};
-
-/** emphasis 发光效果 */
-const EMPHASIS_GLOW = {
-  emphasis: {
-    focus: 'series' as const,
-    lineStyle: { width: 4.5, shadowBlur: 12, shadowColor: 'currentColor' as any },
-    itemStyle: { shadowBlur: 12, shadowColor: 'currentColor' as any },
-  },
-};
-
-/** markPoint / markLine 共享配置 */
-function makeMarkExtras() {
-  return {
-    markPoint: {
-      animation: true,
-      animationDuration: 600,
-      animationDelay: 1000,
-      data: [
-        { type: 'max', name: '最高', label: { formatter: (p: any) => (p.value / 10000).toFixed(1) + 'w', color: '#fff', fontSize: 10 } },
-        { type: 'min', name: '最低', label: { formatter: (p: any) => (p.value / 10000).toFixed(1) + 'w', color: '#fff', fontSize: 10 } },
-      ],
-    },
-    markLine: {
-      silent: true,
-      animation: true,
-      animationDuration: 600,
-      animationDelay: 1200,
-      data: [{ type: 'average', name: '平均值' }],
-      label: { formatter: '均值' },
-      lineStyle: { type: 'dashed', color: '#94a3b8' },
-    },
-  };
-}
-
-// ── 2D 趋势图 ──
-
-function buildOption(data: ChartData) {
-  const { dates, metal, oxide, waste } = data;
-  const lastIdx = dates.length - 1;
-
-  const seriesColors = ['#f97316', '#38bdf8', '#a78bfa'];
-  const seriesData = [
-    { name: '金属镨钕', color: seriesColors[0], data: metal },
-    { name: '氧化镨钕', color: seriesColors[1], data: oxide },
-    { name: '废料镨钕', color: seriesColors[2], data: waste },
-  ];
-
-  const lineSeries = seriesData.map((s, i) => ({
-    name: s.name,
-    type: 'line' as const,
-    data: s.data,
-    smooth: true,
-    symbol: 'circle',
-    symbolSize: 4,
-    showSymbol: false,
-    animationDelay: i * 280,
-    ...ANIM_IN,
-    ...ANIM_UPDATE,
-    ...EMPHASIS_GLOW,
-    lineStyle: { width: 2.5, color: s.color },
-    itemStyle: { color: s.color },
-    areaStyle: {
-      color: new (window as any).echarts.graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: s.color.replace(')', ',0.22)').replace('rgb', 'rgba') },
-        { offset: 1, color: s.color.replace(')', ',0)').replace('rgb', 'rgba') },
-      ]),
-    },
-    ...makeMarkExtras(),
-  }));
-
-  // 脉冲标记 — 最新数据点呼吸光环
-  const pulseSeries = seriesData.map((s, i) => ({
-    name: `${s.name}-脉冲`,
-    type: 'effectScatter' as const,
-    data: [[lastIdx, s.data[lastIdx]]],
-    showEffectOn: 'render' as const,
-    rippleEffect: { brushType: 'stroke' as const, scale: 3.5, period: 3.5 },
-    symbolSize: 10,
-    animationDelay: 1200 + i * 280,
-    animationDuration: 600,
-    zlevel: 1,
-    itemStyle: { color: s.color, shadowBlur: 8, shadowColor: s.color },
-  }));
-
-  return {
-    backgroundColor: 'transparent',
-    title: {
-      text: '',
-      bottom: -5,
-      left: 'center',
-      textStyle: { color: '#94a3b8', fontSize: 12, fontWeight: 'normal' },
-    },
-    tooltip: {
-      trigger: 'axis',
-      confine: true,
-      axisPointer: { type: 'line', label: { backgroundColor: '#1e293b' }, lineStyle: { color: '#475569', type: 'dashed' } },
-      backgroundColor: 'rgba(15,23,42,0.95)',
-      borderColor: '#334155',
-      textStyle: { color: '#e2e8f0', fontSize: 13 },
-      formatter(params: any[]) {
-        let s = `<b>${params[0].axisValue}</b><br/>`;
-        for (const p of params) {
-          if (p.seriesType === 'effectScatter') continue;
-          if (p.value !== '-' && p.value != null) {
-            s += `${p.marker} ${p.seriesName}：<b>${Number(p.value).toLocaleString()}</b> 元/吨<br/>`;
-          }
-        }
-        return s;
-      },
-    },
-    legend: {
-      data: seriesData.map(s => s.name),
-      top: 58,
-      left: 'center',
-      textStyle: { color: '#94a3b8', fontSize: 12 },
-      selected: { '氧化镨钕': false, '废料镨钕': false },
-    },
-    dataZoom: [
-      {
-        type: 'slider',
-        show: true,
-        bottom: 25,
-        height: 20,
-        borderColor: '#334155',
-        textStyle: { color: '#f8fafc', fontSize: 11 },
-        labelFormatter(value: number) { return dates[value] || ''; },
-        handleSize: '120%',
-        handleStyle: { color: '#94a3b8', shadowBlur: 3, shadowColor: 'rgba(0,0,0,0.5)', shadowOffsetX: 1, shadowOffsetY: 1 },
-        fillerColor: 'rgba(148,163,184,0.2)',
-        dataBackground: { lineStyle: { color: '#475569' }, areaStyle: { color: '#1e293b' } },
-      },
-    ],
-    xAxis: {
-      type: 'category', data: dates, boundaryGap: false,
-      axisLabel: { rotate: 30, fontSize: 10, color: '#64748b', hideOverlap: true },
-      axisLine: { lineStyle: { color: '#1e293b' } },
-      axisTick: { show: false },
-    },
-    yAxis: {
-      type: 'value', name: '元/吨',
-      nameTextStyle: { color: '#64748b', fontSize: 11 },
-      axisLabel: { color: '#64748b', fontSize: 11, formatter: (v: number) => (v / 10000).toFixed(0) + '万' },
-      splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
-      scale: true,
-    },
-    series: [...lineSeries, ...pulseSeries],
-    grid: { left: 75, right: 75, top: 80, bottom: 65 },
-    media: [
-      {
-        query: { maxWidth: 500 },
-        option: { grid: { left: 55, right: 55, top: 100, bottom: 70 } },
-      },
-    ],
-  };
-}
-
-// ── 2D 年份对比图 ──
-
+/** 构建年份对比图配置 */
 function buildCompareOption(data: CompareData) {
   const { labels, years, metal } = data;
+  // 年份配色
   const colors = ['#f97316', '#38bdf8', '#a78bfa', '#22c55e', '#ef4444', '#eab308'];
-
+  
   const series = years.map((year, i) => ({
     name: `${year}年`,
     type: 'line' as const,
@@ -284,10 +114,6 @@ function buildCompareOption(data: CompareData) {
     symbol: 'circle',
     symbolSize: 2,
     showSymbol: false,
-    animationDelay: i * 200,
-    ...ANIM_IN,
-    ...ANIM_UPDATE,
-    ...EMPHASIS_GLOW,
     lineStyle: { width: 2.5, color: colors[i % colors.length] },
     itemStyle: { color: colors[i % colors.length] },
   }));
@@ -295,14 +121,14 @@ function buildCompareOption(data: CompareData) {
   return {
     backgroundColor: 'transparent',
     title: {
-      text: '金属镨钕 年份对比',
+      text: `金属镨钕 年份对比`,
       bottom: -5,
       left: 'center',
-      textStyle: { color: '#94a3b8', fontSize: 12, fontWeight: 'normal' },
+      textStyle: { color: '#94a3b8', fontSize: 12, fontWeight: 'normal' }
     },
     tooltip: {
       trigger: 'axis',
-      confine: true,
+      confine: true, // 防移动端溢出
       backgroundColor: 'rgba(15,23,42,0.95)',
       borderColor: '#334155',
       textStyle: { color: '#e2e8f0', fontSize: 13 },
@@ -314,50 +140,173 @@ function buildCompareOption(data: CompareData) {
           }
         }
         return s;
-      },
+      }
     },
     legend: {
       data: series.map(s => s.name),
       top: 58,
       left: 'center',
-      type: 'scroll',
+      type: 'scroll', // 移动端多图例滚动
       textStyle: { color: '#94a3b8', fontSize: 12 },
       selected: years.reduce((acc, y, i) => {
+        // 默认只显示最近两年
         acc[`${y}年`] = i >= years.length - 2;
         return acc;
-      }, {} as Record<string, boolean>),
+      }, {} as Record<string, boolean>)
     },
     grid: { left: 75, right: 75, top: 80, bottom: 45 },
     xAxis: {
-      type: 'category', data: labels, boundaryGap: false,
+      type: 'category',
+      data: labels,
+      boundaryGap: false,
       axisLabel: { rotate: 0, fontSize: 10, color: '#64748b', interval: Math.max(1, Math.floor(labels.length / 12)) },
       axisLine: { lineStyle: { color: '#1e293b' } },
-      axisTick: { show: false },
+      axisTick: { show: false }
+    },
+    yAxis: {
+      type: 'value',
+      name: '元/吨',
+      nameTextStyle: { color: '#64748b', fontSize: 11 },
+      axisLabel: { color: '#64748b', fontSize: 11, formatter: (v: number) => (v / 10000).toFixed(0) + '万' },
+      splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+      scale: true
+    },
+    series,
+    media: [
+      {
+        query: { maxWidth: 500 }, // 小屏专属优化
+        option: {
+          grid: { left: 55, right: 55, top: 100, bottom: 45 },
+          xAxis: { axisLabel: { fontSize: 9 } }
+        }
+      },
+      {
+        option: {
+          grid: { left: 75, right: 75, top: 80, bottom: 45 }
+        }
+      }
+    ]
+  };
+}
+
+function buildOption(data: ChartData) {
+  const { dates, metal, oxide, waste } = data;
+  
+  const markPointConfig = {
+    data: [
+      { type: 'max', name: '最高', label: { formatter: (p: any) => (p.value/10000).toFixed(1) + 'w', color: '#fff', fontSize: 10 } },
+      { type: 'min', name: '最低', label: { formatter: (p: any) => (p.value/10000).toFixed(1) + 'w', color: '#fff', fontSize: 10 } }
+    ]
+  };
+  const markLineConfig = {
+    silent: true, // 禁用均值线的点击/悬停交互（不响应鼠标事件）
+    data: [{ type: 'average', name: '平均值' }],
+    label: { formatter: '均值' },
+    lineStyle: { type: 'dashed', color: '#94a3b8' }
+  };
+
+  return {
+    backgroundColor: 'transparent',
+    title: {
+      text: '', // 动态更新
+      bottom: -5,
+      left: 'center',
+      textStyle: { color: '#94a3b8', fontSize: 12, fontWeight: 'normal' }
+    },
+    tooltip: {
+      trigger: 'axis',
+      confine: true, // 防移动端溢出
+      axisPointer: { type: 'line', label: { backgroundColor: '#1e293b' } },
+      backgroundColor: 'rgba(15,23,42,0.95)',
+      borderColor: '#334155',
+      textStyle: { color: '#e2e8f0', fontSize: 13 },
+      formatter(params: any[]) {
+        let s = `<b>${params[0].axisValue}</b><br/>`;
+        for (const p of params) {
+          if (p.value !== '-') {
+            s += `${p.marker} ${p.seriesName}：<b>${Number(p.value).toLocaleString()}</b> 元/吨<br/>`;
+          }
+        }
+        return s;
+      }
+    },
+    legend: {
+      data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
+      top: 58, 
+      left: 'center',
+      textStyle: { color: '#94a3b8', fontSize: 12 },
+      selected: { '氧化镨钕': false, '废料镨钕': false }
+    },
+    dataZoom: [
+      { 
+        type: 'slider', 
+        show: true, 
+        bottom: 25, 
+        height: 20, 
+        borderColor: '#334155', 
+        textStyle: { color: '#f8fafc', fontSize: 11 },
+        labelFormatter: function (value: number) {
+          return dates[value] || '';
+        },
+        handleSize: '120%',
+        handleStyle: { color: '#94a3b8', shadowBlur: 3, shadowColor: 'rgba(0,0,0,0.5)', shadowOffsetX: 1, shadowOffsetY: 1 },
+        fillerColor: 'rgba(148,163,184,0.2)',
+        dataBackground: { lineStyle: { color: '#475569' }, areaStyle: { color: '#1e293b' } }
+      }
+    ],
+    xAxis: {
+      type: 'category', data: dates, boundaryGap: false,
+      axisLabel: { rotate: 30, fontSize: 10, color: '#64748b', hideOverlap: true },
+      axisLine: { lineStyle: { color: '#1e293b' } },
+      axisTick: { show: false }
     },
     yAxis: {
       type: 'value', name: '元/吨',
       nameTextStyle: { color: '#64748b', fontSize: 11 },
       axisLabel: { color: '#64748b', fontSize: 11, formatter: (v: number) => (v / 10000).toFixed(0) + '万' },
       splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
-      scale: true,
+      scale: true
     },
-    series,
+    series: [
+      {
+        name: '金属镨钕', type: 'line', data: metal, smooth: true,
+        symbol: 'circle', symbolSize: 4, showSymbol: false,
+        lineStyle: { width: 2.5, color: '#f97316' }, itemStyle: { color: '#f97316' },
+        markPoint: markPointConfig, markLine: markLineConfig,
+        areaStyle: { color: new (window as any).echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(249,115,22,0.2)' }, { offset: 1, color: 'rgba(249,115,22,0)' }])}
+      },
+      {
+        name: '氧化镨钕', type: 'line', data: oxide, smooth: true,
+        symbol: 'circle', symbolSize: 4, showSymbol: false,
+        lineStyle: { width: 2.5, color: '#38bdf8' }, itemStyle: { color: '#38bdf8' },
+        markPoint: markPointConfig, markLine: markLineConfig,
+        areaStyle: { color: new (window as any).echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(56,189,248,0.15)' }, { offset: 1, color: 'rgba(56,189,248,0)' }])}
+      },
+      {
+        name: '废料镨钕', type: 'line', data: waste, smooth: true,
+        symbol: 'circle', symbolSize: 4, showSymbol: false,
+        lineStyle: { width: 2.5, color: '#a78bfa' }, itemStyle: { color: '#a78bfa' },
+        markPoint: markPointConfig, markLine: markLineConfig,
+        areaStyle: { color: new (window as any).echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(167,139,250,0.15)' }, { offset: 1, color: 'rgba(167,139,250,0)' }])}
+      }
+    ],
+    grid: { left: 75, right: 75, top: 80, bottom: 65 },
     media: [
       {
-        query: { maxWidth: 500 },
-        option: { grid: { left: 55, right: 55, top: 100, bottom: 45 }, xAxis: { axisLabel: { fontSize: 9 } } },
-      },
-    ],
+        query: { maxWidth: 500 }, // 小屏专属优化
+        option: {
+          grid: { left: 55, right: 55, top: 100, bottom: 70 }
+        }
+      }
+    ]
   };
 }
 
-// ── 3D 柱状图 ──
-
+/** 构建 3D 柱状图配置 */
 function buildBar3DOption(rawData: ChartData) {
   const data = sampleData(rawData);
   const { dates, metal, oxide, waste } = data;
 
-  // 构建数据：[xIndex, yIndex, zValue]
   const seriesData: [number, number, number][] = [];
   dates.forEach((_, i) => {
     seriesData.push([i, 0, metal[i]]);
@@ -405,11 +354,12 @@ function buildBar3DOption(rawData: ChartData) {
       light: {
         main: { intensity: 1.2, shadow: true, shadowQuality: 'medium', alpha: 35, beta: 30 },
         ambient: { intensity: 0.5 },
-        ambientCubemap: {
-          texture: '', // 跳过环境贴图，使用纯色环境光
-        },
       },
-      postEffect: { enable: true, bloom: { enable: false }, SSAO: { enable: true, quality: 'medium', radius: 2, intensity: 0.8 } },
+      postEffect: {
+        enable: true,
+        bloom: { enable: false },
+        SSAO: { enable: true, quality: 'medium', radius: 2, intensity: 0.8 },
+      },
       environment: '#0f172a',
     },
     xAxis3D: {
@@ -420,7 +370,7 @@ function buildBar3DOption(rawData: ChartData) {
         fontSize: 9,
         color: '#64748b',
         interval: Math.max(1, Math.floor(dates.length / 15)),
-        formatter: (v: string) => v.slice(5), // 只显示 MM.DD
+        formatter: (v: string) => v.slice(5),
       },
       axisLine: { lineStyle: { color: '#334155' } },
     },
@@ -459,17 +409,11 @@ function buildBar3DOption(rawData: ChartData) {
   };
 }
 
-// ── 主入口 ──
-
-export async function initChart(
-  containerId: string,
-  rawData: ChartData,
-  compareData?: CompareData | null,
-) {
+export async function initChart(containerId: string, rawData: ChartData, compareData?: CompareData | null) {
   const container2D = document.getElementById(containerId);
   if (!container2D) return;
 
-  // 获取/创建 3D 容器
+  // 创建 3D 容器
   let container3D = document.getElementById(containerId + '-3d');
   if (!container3D) {
     container3D = document.createElement('div');
@@ -482,41 +426,29 @@ export async function initChart(
   try {
     const echarts = await loadECharts();
     const chart = echarts.init(container2D, 'dark');
+    
+    // 初始化配置
     chart.setOption(buildOption(rawData));
 
     let currentMode: 'trend' | 'compare' | '3d' = 'trend';
     let isTabClicking = false;
     let chart3D: any = null;
 
-    // ── 模式切换 ──
-
-    function switchToTrend() {
-      currentMode = 'trend';
-      // 隐藏 3D
-      if (chart3D) {
-        chart3D.dispose();
-        chart3D = null;
-      }
-      container2D.style.display = '';
-      container3D.style.display = 'none';
-      chart.resize();
-      chart.clear();
-      chart.setOption(buildOption(rawData), true);
-      setTimeout(() => updateTitleDateRange(), 100);
-    }
-
+    // 年份对比模式
     function switchToCompare() {
       if (!compareData) return;
       currentMode = 'compare';
-      if (chart3D) {
-        chart3D.dispose();
-        chart3D = null;
-      }
-      container2D.style.display = '';
-      container3D.style.display = 'none';
-      chart.resize();
+      destroy3D();
       chart.clear();
       chart.setOption(buildCompareOption(compareData), true);
+    }
+
+    function switchToTrend() {
+      currentMode = 'trend';
+      destroy3D();
+      chart.clear();
+      chart.setOption(buildOption(rawData), true);
+      updateTitleDateRange();
     }
 
     async function switchTo3D() {
@@ -531,11 +463,9 @@ export async function initChart(
         chart3D.setOption(buildBar3DOption(rawData));
       } catch (err) {
         console.error('ECharts GL load failed, fallback to 2D', err);
-        container3D.style.display = 'none';
         container3D.innerHTML =
           '<p style="text-align:center;color:#94a3b8;padding:60px;">3D 模块加载失败，请检查网络后重试</p>';
-        container3D.style.display = '';
-        // 3 秒后切回 2D
+        // 3 秒后自动切回 2D
         setTimeout(() => {
           chart.resize();
           currentMode = 'trend';
@@ -560,15 +490,15 @@ export async function initChart(
       container3D.style.display = 'none';
     }
 
-    // ── 动态标题 ──
-
+    // 动态更新底部的当前日期区间
     const updateTitleDateRange = () => {
       if (currentMode !== 'trend') return;
       const opt = chart.getOption();
       if (!opt.dataZoom || !opt.dataZoom.length) return;
-      const dz = opt.dataZoom[0];
+      const dz = opt.dataZoom[0]; 
       const len = rawData.dates.length;
       let startIdx = 0, endIdx = len - 1;
+      
       if (dz.startValue !== undefined && dz.endValue !== undefined) {
         startIdx = Math.max(0, dz.startValue);
         endIdx = Math.min(len - 1, dz.endValue);
@@ -576,29 +506,30 @@ export async function initChart(
         startIdx = Math.floor((dz.start || 0) / 100 * (len - 1));
         endIdx = Math.ceil((dz.end || 100) / 100 * (len - 1));
       }
+      const sDate = rawData.dates[startIdx];
+      const eDate = rawData.dates[endIdx];
+      
       chart.setOption({
-        title: { text: `数据区间: ${rawData.dates[startIdx]} 至 ${rawData.dates[endIdx]}` },
+        title: { text: `数据区间: ${sDate} 至 ${eDate}` }
       });
     };
 
-    // ── 事件 ──
-
     chart.on('dataZoom', () => {
       updateTitleDateRange();
+      // 如果不是点击按钮触发的，而是用户手动拖动/缩放，则取消所有按钮的激活状态
       if (!isTabClicking) {
         document.querySelectorAll('.chart-tabs .tab').forEach(b => b.classList.remove('active'));
       }
     });
     updateTitleDateRange();
 
-    // ── Tab 按钮 ──
-
-    document.querySelectorAll('.chart-tabs .tab').forEach(btn => {
+    // 时间范围切换
+    document.querySelectorAll('.chart-tabs .tab').forEach((btn) => {
       (btn as HTMLElement).addEventListener('click', async function () {
         isTabClicking = true;
         const range = this.dataset.range;
 
-        // 点击 3D 按钮
+        // 3D 模式
         if (range === '3d') {
           document.querySelectorAll('.chart-tabs .tab').forEach(b => b.classList.remove('active'));
           this.classList.add('active');
@@ -618,7 +549,6 @@ export async function initChart(
         document.querySelectorAll('.chart-tabs .tab').forEach(b => b.classList.remove('active'));
         this.classList.add('active');
 
-        // 对比模式
         if (range === 'compare') {
           switchToCompare();
           isTabClicking = false;
@@ -629,12 +559,12 @@ export async function initChart(
         if (currentMode === 'compare') {
           switchToTrend();
         }
-
-        // 时间范围
+        
         if (range === 'all') {
           chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 });
         } else {
           const calDays = parseInt(range!);
+          // 按自然日计算：从最新日期往前找 calDays 天内的数据
           const parseDateStr = (s: string) => {
             const [y, m, d] = s.split('.').map(Number);
             return new Date(y, m - 1, d).getTime();
@@ -651,10 +581,11 @@ export async function initChart(
           const startPct = Math.max(0, (startIdx / Math.max(1, rawData.dates.length - 1)) * 100);
           chart.dispatchAction({ type: 'dataZoom', start: startPct, end: 100 });
         }
+        // 触发 action 后不会自动调回调，需手动更新一次 title
         setTimeout(() => {
           updateTitleDateRange();
           isTabClicking = false;
-        }, 100);
+        }, 50); 
       });
     });
 
@@ -663,7 +594,7 @@ export async function initChart(
       if (chart3D) chart3D.resize();
     });
 
-    // 默认展示近 30 天
+    // 默认展示近30天
     setTimeout(() => {
       const btn30 = document.querySelector('.chart-tabs .tab[data-range="30"]');
       if (btn30) (btn30 as HTMLElement).click();
