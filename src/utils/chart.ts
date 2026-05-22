@@ -507,22 +507,28 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     function syncLegendFrom2D(c3d: any) {
       const allLabels = ['金属镨钕', '氧化镨钕', '废料镨钕'];
       let sel2d: Record<string, boolean> = {};
-      try {
-        const opt2d = chart.getOption();
-        sel2d = (opt2d as any)?.legend?.[0]?.selected || {};
-      } catch { /* ignore */ }
+      try { sel2d = (chart.getOption() as any)?.legend?.[0]?.selected || {}; } catch { /* */ }
       let sel3d: Record<string, boolean> = {};
-      try {
-        const opt3d = c3d.getOption();
-        sel3d = (opt3d as any)?.legend?.[0]?.selected || {};
-      } catch { /* ignore */ }
-
+      try { sel3d = (c3d.getOption() as any)?.legend?.[0]?.selected || {}; } catch { /* */ }
       for (const name of allLabels) {
         const want = sel2d[name] !== false;
         const have = sel3d[name] !== false;
-        if (want !== have) {
-          c3d.dispatchAction({ type: 'legendToggleSelect', name });
-        }
+        if (want !== have) c3d.dispatchAction({ type: 'legendToggleSelect', name });
+      }
+    }
+
+    /** 从 3D 图例读取选中状态，同步回 2D 图例 */
+    function syncLegendFrom3D() {
+      if (!chart3D) return;
+      const allLabels = ['金属镨钕', '氧化镨钕', '废料镨钕'];
+      let sel3d: Record<string, boolean> = {};
+      try { sel3d = (chart3D.getOption() as any)?.legend?.[0]?.selected || {}; } catch { /* */ }
+      let sel2d: Record<string, boolean> = {};
+      try { sel2d = (chart.getOption() as any)?.legend?.[0]?.selected || {}; } catch { /* */ }
+      for (const name of allLabels) {
+        const want = sel3d[name] !== false;
+        const have = sel2d[name] !== false;
+        if (want !== have) chart.dispatchAction({ type: 'legendToggleSelect', name });
       }
     }
 
@@ -550,6 +556,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       }
 
       setCookie(COOKIE_KEY, '2d');
+      syncLegendFrom3D();
       setTimeout(() => updateTitleDateRange(), 150);
     }
 
