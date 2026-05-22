@@ -267,14 +267,13 @@ function buildBar3DOption(rawData: ChartData) {
       axisLine: { lineStyle: { color: '#1e293b' } },
       splitLine: { show: false },
     },
-    zAxis3D: {
-      type: 'value',
-      min: (() => { const all = [...metal, ...oxide, ...waste]; const lo = Math.min(...all); const hi = Math.max(...all); const pad = (hi - lo) * 0.1; return lo - pad; })(),
-      max: (() => { const all = [...metal, ...oxide, ...waste]; const lo = Math.min(...all); const hi = Math.max(...all); const pad = (hi - lo) * 0.05; return hi + pad; })(),
-      axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
-      axisLine: { lineStyle: { color: '#1e293b' } },
-      splitLine: { show: false },
-    },
+    zAxis3D: (() => {
+      const all = [...rawData.metal, ...rawData.oxide, ...rawData.waste];
+      const lo = Math.min(...all); const hi = Math.max(...all); const pad = (hi - lo) * 0.1 || 1000;
+      return { type: 'value' as const, min: lo - pad, max: hi + pad * 0.5,
+        axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
+        axisLine: { lineStyle: { color: '#1e293b' } }, splitLine: { show: false } };
+    })(),
     series: [
       {
         name: '金属镨钕', type: 'bar3D', data: metalData, shading: 'lambert',
@@ -340,14 +339,13 @@ function buildLine3DOption(rawData: ChartData) {
       axisLine: { lineStyle: { color: '#1e293b' } },
       splitLine: { show: false },
     },
-    zAxis3D: {
-      type: 'value',
-      min: (() => { const all = [...metal, ...oxide, ...waste]; const lo = Math.min(...all); const hi = Math.max(...all); const pad = (hi - lo) * 0.1; return lo - pad; })(),
-      max: (() => { const all = [...metal, ...oxide, ...waste]; const lo = Math.min(...all); const hi = Math.max(...all); const pad = (hi - lo) * 0.05; return hi + pad; })(),
-      axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
-      axisLine: { lineStyle: { color: '#1e293b' } },
-      splitLine: { show: false },
-    },
+    zAxis3D: (() => {
+      const all = [...rawData.metal, ...rawData.oxide, ...rawData.waste];
+      const lo = Math.min(...all); const hi = Math.max(...all); const pad = (hi - lo) * 0.1 || 1000;
+      return { type: 'value' as const, min: lo - pad, max: hi + pad * 0.5,
+        axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
+        axisLine: { lineStyle: { color: '#1e293b' } }, splitLine: { show: false } };
+    })(),
     series: [
       { name: '金属镨钕', type: 'line3D', data: ml, lineStyle: { color: '#f97316', width: 1.5 }, itemStyle: { color: '#f97316' } },
       { name: '氧化镨钕', type: 'line3D', data: ol, lineStyle: { color: '#38bdf8', width: 1.5 }, itemStyle: { color: '#38bdf8' } },
