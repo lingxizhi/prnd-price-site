@@ -8,7 +8,9 @@
 
 const ECHARTS_CDN = 'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js';
 const ECHARTS_SRI = 'sha384-Mx5lkUEQPM1pOJCwFtUICyX45KNojXbkWdYhkKUKsbv391mavbfoAmONbzkgYPzR';
-const ECHARTS_GL_CDN = 'https://cdn.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js';
+// unpkg 为主（Cloudflare CDN，国内移动端兼容性更好），jsdelivr 为兜底
+const ECHARTS_GL_CDN_PRIMARY = 'https://unpkg.com/echarts-gl@2.0.9/dist/echarts-gl.min.js';
+const ECHARTS_GL_CDN_FALLBACK = 'https://cdn.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js';
 
 interface ChartData {
   dates: string[];
@@ -53,24 +55,36 @@ function loadECharts(): Promise<any> {
   return loadPromise;
 }
 
-/** 加载 ECharts GL（按需加载） */
-function loadEChartsGL(): Promise<void> {
+/** 加载 ECharts GL（按需加载，带超时和 CDN 容灾） */
+function loadEChartsGL(timeoutMs = 15000): Promise<void> {
   if (echartsGlLoaded) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    if ((window as any).echarts?.gl) {
-      echartsGlLoaded = true;
-      return resolve();
-    }
-    const script = document.createElement('script');
-    script.src = ECHARTS_GL_CDN;
-    script.crossOrigin = 'anonymous';
-    script.onload = () => {
-      echartsGlLoaded = true;
-      resolve();
-    };
-    script.onerror = () => reject(new Error('ECharts GL CDN load failed'));
-    document.head.appendChild(script);
-  });
+
+  function tryLoad(url: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      const timer = setTimeout(() => {
+        script.remove();
+        reject(new Error(`CDN timeout: ${url}`));
+      }, timeoutMs);
+      script.onload = () => {
+        clearTimeout(timer);
+        echartsGlLoaded = true;
+        resolve();
+      };
+      script.onerror = () => {
+        clearTimeout(timer);
+        script.remove();
+        reject(new Error(`CDN load failed: ${url}`));
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  // 先尝试 unpkg，失败则回退 jsdelivr
+  return tryLoad(ECHARTS_GL_CDN_PRIMARY).catch(() =>
+    tryLoad(ECHARTS_GL_CDN_FALLBACK)
+  );
 }
 
 /** 数据采样（3D 图表降采样用，超过 maxPoints 时均匀采样） */
@@ -455,6 +469,15 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       currentMode = '3d';
       container2D.style.display = 'none';
       container3D.style.display = '';
+      // 显示加载状态
+      container3D.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;"><div style="width:32px;height:32px;border:3px solid #334155;border-top-color:#f97316;border-radius:50%;animation:spin3d 0.8s linear infinite;"></div><span style="color:#94a3b8;font-size:14px;">加载 3D 引擎中...</span></div>';
+      // 注入旋转动画样式（只注入一次）
+      if (!document.getElementById('spin3d-style')) {
+        const style = document.createElement('style');
+        style.id = 'spin3d-style';
+        style.textContent = '@keyframes spin3d{to{transform:rotate(360deg)}}';
+        document.head.appendChild(style);
+      }
 
       try {
         await loadEChartsGL();
