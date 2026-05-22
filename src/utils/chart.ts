@@ -492,10 +492,13 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       };
       _bindGridTimer = setTimeout(bindGrid, 100);
 
-      // 图例点击 → Y 轴标签同步
+      // 图例点击 → Y 轴标签同步（echarts-gl 不支持局部 setOption 改 3D 轴）
       c3d.on('legendselectchanged', function (params: any) {
         const sel = params.selected;
-        c3d.setOption({ yAxis3D: { data: allLabels.map((n: string) => sel[n] ? n : '') } });
+        const filtered = activeDays ? filterByDays(rawData, activeDays) : rawData;
+        const opt = build3DOption(filtered);
+        opt.yAxis3D = { ...opt.yAxis3D, data: allLabels.map((n: string) => sel[n] ? n : '') };
+        c3d.setOption(opt, false);
       });
     }
 
