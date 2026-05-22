@@ -336,6 +336,11 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       setCookie(COOKIE_KEY, '2d');
     }
 
+    function updateModeBtnText() {
+      const btn = document.querySelector('.tab[data-range="3d"]');
+      if (btn) (btn as HTMLElement).textContent = currentMode === '3d' ? '切换2D' : '切换3D';
+    }
+
     function switchToTrend() {
       currentMode = 'trend';
       container3D.style.display = 'none';
@@ -343,6 +348,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       chart.resize();
       chart.clear();
       chart.setOption(buildOption(rawData), true);
+      updateModeBtnText();
 
       // 恢复当前日期范围到 dataZoom
       if (activeDays) {
@@ -415,6 +421,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
 
       setCookie(COOKIE_KEY, '3d');
       highlight3DMode();
+      updateModeBtnText();
     }
 
     // 3D 模式下更新日期范围
@@ -469,11 +476,14 @@ export async function initChart(containerId: string, rawData: ChartData, compare
         isTabClicking = true;
         const range = this.dataset.range!;
 
-        // ── 3D 按钮 ──
+        // ── 3D 按钮（toggle） ──
         if (range === '3d') {
           if (currentMode !== '3d') {
             highlight3DMode();
             await switchTo3D();
+          } else {
+            switchToTrend();
+            highlightTab(`.tab[data-range="${activeDays ?? 'all'}"]`);
           }
           isTabClicking = false;
           return;
