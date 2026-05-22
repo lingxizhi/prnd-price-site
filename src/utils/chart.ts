@@ -268,7 +268,6 @@ function buildBar3DOption(rawData: ChartData, zRange?: { min: number; max: numbe
       splitLine: { show: false },
     },
     zAxis3D: (() => {
-      const all = [...rawData.metal, ...rawData.oxide, ...rawData.waste];
       if (zRange) return { type: 'value' as const, min: zRange.min, max: zRange.max,
         axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
         axisLine: { lineStyle: { color: '#1e293b' } }, splitLine: { show: false } };
