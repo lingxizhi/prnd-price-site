@@ -442,6 +442,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
 
     function switchToCompare() {
       if (!compareData) return;
+      hideCursor();
       currentMode = 'compare';
       container3D.style.display = 'none';
       container2D.style.display = '';
@@ -467,6 +468,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
 
     function switch3DType(type: 'bar' | 'line') {
       if (current3DType === type) return;
+      hideCursor();
       current3DType = type;
       if (currentMode === '3d' && chart3D) {
         // ECharts GL 不支持同一实例切换 series 类型, 必须 dispose + re-init
@@ -560,6 +562,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     }
 
     function switchToTrend() {
+      hideCursor();
       currentMode = 'trend';
       container3D.style.display = 'none';
       container2D.style.display = '';
@@ -588,6 +591,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     }
 
     async function switchTo3D() {
+      hideCursor();
       currentMode = '3d';
       container2D.style.display = 'none';
       container3D.style.display = 'block';
@@ -660,6 +664,7 @@ export async function initChart(containerId: string, rawData: ChartData, compare
 
     // 3D 模式下更新日期范围
     function update3DRange(days: number | null) {
+      hideCursor();
       activeDays = days;
       if (currentMode === '3d' && chart3D) {
         const filtered = days ? filterByDays(rawData, days) : rawData;
@@ -762,6 +767,81 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     window.addEventListener('resize', () => {
       if (currentMode === '3d' && chart3D) chart3D.resize();
       else chart.resize();
+    });
+
+    // ═══════════════════════════════════════
+    //  键盘光标系统（2D / 3D 通用）
+    // ═══════════════════════════════════════
+
+    let cursorIndex = -1; // -1=隐藏, 0..N-1=rawData.dates 索引
+
+    // 3D 模式下浮动的数据标签
+    const cursorInfo = document.createElement('div');
+    cursorInfo.style.cssText = 'display:none;position:fixed;bottom:44px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(51,65,85,0.55);border-radius:8px;padding:6px 14px;z-index:200;font-size:0.72rem;color:#e2e8f0;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums;letter-spacing:0.3px';
+    document.body.appendChild(cursorInfo);
+
+    function showCursor() {
+      const date = rawData.dates[cursorIndex];
+      if (!date) return;
+
+      if (currentMode === '3d' && chart3D) {
+        // 3D: 通过 xAxis3D.data 把 rawData 索引映射到显示数据的索引
+        let dIdx = -1;
+        try {
+          const xd: string[] = (chart3D.getOption() as any)?.xAxis3D?.[0]?.data || [];
+          dIdx = xd.findIndex((d: string) => d === date);
+        } catch { /* */ }
+
+        if (dIdx >= 0) {
+          chart3D.dispatchAction({ type: 'downplay' });
+          const seriesCount = current3DType === 'bar' ? 3 : 3;
+          for (let s = 0; s < seriesCount; s++) {
+            chart3D.dispatchAction({ type: 'highlight', seriesIndex: s, dataIndex: dIdx });
+          }
+        }
+
+        const m = rawData.metal[cursorIndex];
+        const o = rawData.oxide[cursorIndex];
+        const w = rawData.waste[cursorIndex];
+        const displayDate = date.replace(/\./g, '-');
+        cursorInfo.innerHTML = `<b>${displayDate}</b>&nbsp;&nbsp;<span style="color:#f97316">金属 ${m.toLocaleString()}</span>&nbsp;&nbsp;<span style="color:#38bdf8">氧化 ${o.toLocaleString()}</span>&nbsp;&nbsp;<span style="color:#a78bfa">废料 ${w.toLocaleString()}</span> 元/吨`;
+        cursorInfo.style.display = '';
+
+      } else if (currentMode === 'trend') {
+        // 2D: showTip 带 dataZoom 自动滚动
+        chart.dispatchAction({ type: 'showTip', seriesIndex: 0, dataIndex: cursorIndex });
+        if (chart3D) chart3D.dispatchAction({ type: 'downplay' });
+        cursorInfo.style.display = 'none';
+      }
+    }
+
+    function hideCursor() {
+      cursorIndex = -1;
+      if (currentMode === 'trend') chart.dispatchAction({ type: 'hideTip' });
+      if (chart3D) chart3D.dispatchAction({ type: 'downplay' });
+      cursorInfo.style.display = 'none';
+    }
+
+    document.addEventListener('keydown', (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      if (currentMode === 'compare') return;
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (cursorIndex < 0) cursorIndex = rawData.dates.length - 1;
+        else if (cursorIndex > 0) cursorIndex--;
+        else cursorIndex = rawData.dates.length - 1;
+        showCursor();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (cursorIndex < 0) cursorIndex = 0;
+        else if (cursorIndex < rawData.dates.length - 1) cursorIndex++;
+        else cursorIndex = 0;
+        showCursor();
+      } else if (e.key === 'Escape') {
+        hideCursor();
+      }
     });
 
     // ── 初始化：检查 Cookie 恢复模式 ──
