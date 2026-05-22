@@ -225,8 +225,14 @@ function buildBar3DOption(rawData: ChartData) {
   const data = sampleData(rawData);
   const { dates, metal, oxide, waste } = data;
 
-  const seriesData: [number, number, number][] = [];
-  dates.forEach((_, i) => { seriesData.push([i, 0, metal[i]], [i, 1, oxide[i]], [i, 2, waste[i]]); });
+  const metalData: [number, number, number][] = [];
+  const oxideData: [number, number, number][] = [];
+  const wasteData: [number, number, number][] = [];
+  dates.forEach((_, i) => {
+    metalData.push([i, 0, metal[i]]);
+    oxideData.push([i, 1, oxide[i]]);
+    wasteData.push([i, 2, waste[i]]);
+  });
 
   return {
     tooltip: {
@@ -234,18 +240,20 @@ function buildBar3DOption(rawData: ChartData) {
       textStyle: { color: '#e2e8f0', fontSize: 13 },
       formatter(params: any) {
         const x = dates[params.value[0]];
-        const y = ['金属镨钕', '氧化镨钕', '废料镨钕'][params.value[1]] || '';
+        const names = ['金属镨钕', '氧化镨钕', '废料镨钕'];
+        const y = names[params.value[1]] || params.seriesName || '';
         return `<b>${x}</b><br/>${y}：<b>${Number(params.value[2]).toLocaleString()}</b> 元/吨`;
       },
     },
-    visualMap: {
-      dimension: 1,
-      pieces: [{ min: 0, max: 0, color: '#f97316' }, { min: 1, max: 1, color: '#38bdf8' }, { min: 2, max: 2, color: '#a78bfa' }],
-      show: false,
+    legend: {
+      data: ['金属镨钕', '氧化镨钕', '废料镨钕'],
+      top: 58, left: 'center',
+      textStyle: { color: '#94a3b8', fontSize: 12 },
+      selected: { '氧化镨钕': false, '废料镨钕': false },
     },
     grid3D: {
       boxWidth: Math.min(180, dates.length * 3), boxDepth: 50, boxHeight: 80,
-      viewControl: { autoRotate: true, autoRotateSpeed: 6, distance: 180, alpha: 30, beta: 40, animation: false },
+      viewControl: { autoRotate: false, distance: 180, alpha: 30, beta: 40, animation: false },
       light: { main: { intensity: 1.2, alpha: 35, beta: 30 }, ambient: { intensity: 0.6 } },
     },
     xAxis3D: {
@@ -262,11 +270,26 @@ function buildBar3DOption(rawData: ChartData) {
       axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v: number) => (v / 10000).toFixed(1) + 'w' },
       splitLine: { lineStyle: { color: '#1e293b' } },
     },
-    series: [{
-      type: 'bar3D', data: seriesData, shading: 'lambert',
-      barSize: Math.max(0.5, Math.min(1.8, 100 / dates.length)),
-      emphasis: { itemStyle: { color: '#fbbf24' } }, label: { show: false },
-    }],
+    series: [
+      {
+        name: '金属镨钕', type: 'bar3D', data: metalData, shading: 'lambert',
+        itemStyle: { color: '#f97316' },
+        barSize: Math.max(0.5, Math.min(1.8, 100 / dates.length)),
+        emphasis: { itemStyle: { color: '#fbbf24' } }, label: { show: false },
+      },
+      {
+        name: '氧化镨钕', type: 'bar3D', data: oxideData, shading: 'lambert',
+        itemStyle: { color: '#38bdf8' },
+        barSize: Math.max(0.5, Math.min(1.8, 100 / dates.length)),
+        emphasis: { itemStyle: { color: '#fbbf24' } }, label: { show: false },
+      },
+      {
+        name: '废料镨钕', type: 'bar3D', data: wasteData, shading: 'lambert',
+        itemStyle: { color: '#a78bfa' },
+        barSize: Math.max(0.5, Math.min(1.8, 100 / dates.length)),
+        emphasis: { itemStyle: { color: '#fbbf24' } }, label: { show: false },
+      },
+    ],
   };
 }
 
