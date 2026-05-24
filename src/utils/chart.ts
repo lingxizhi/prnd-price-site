@@ -522,6 +522,15 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       };
       _bindGridTimer = setTimeout(bindGrid, 100);
 
+      // 鼠标悬浮反向同步光标 (3D)
+      c3d.on('mouseover', (params: any) => {
+        if (currentMode === '3d' && typeof params.dataIndex === 'number') {
+          cursorIndex = params.dataIndex;
+          // 悬浮时隐藏键盘专属的固定信息板，避免干扰
+          cursorInfo.style.display = 'none';
+        }
+      });
+
       // 图例点击 → Y 轴标签同步（echarts-gl 不支持局部 setOption 改 3D 轴）
       c3d.on('legendselectchanged', function (params: any) {
         const sel = params.selected;
@@ -710,6 +719,16 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       if (!isTabClicking) document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
     });
     updateTitleDateRange();
+
+    // ── 鼠标悬浮反向同步光标 (2D) ──
+    chart.on('updateAxisPointer', (params: any) => {
+      if (currentMode === 'trend' && params.axesInfo && params.axesInfo.length > 0) {
+        const hoverIndex = params.axesInfo[0].value;
+        if (typeof hoverIndex === 'number') {
+          cursorIndex = hoverIndex;
+        }
+      }
+    });
 
     // ── Tab 按钮事件 ──
 
