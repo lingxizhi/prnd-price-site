@@ -773,39 +773,46 @@ export async function initChart(containerId: string, rawData: ChartData, compare
     //  键盘光标系统（2D / 3D 通用）
     // ═══════════════════════════════════════
 
-    let cursorIndex = -1; // -1=隐藏, 0..N-1=rawData.dates 索引
+    let cursorIndex = -1; // -1=隐藏, 0..N-1=当前模式可见数据索引
 
     // 3D 模式下浮动的数据标签
     const cursorInfo = document.createElement('div');
     cursorInfo.style.cssText = 'display:none;position:fixed;bottom:44px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(51,65,85,0.55);border-radius:8px;padding:6px 14px;z-index:200;font-size:0.72rem;color:#e2e8f0;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums;letter-spacing:0.3px';
     document.body.appendChild(cursorInfo);
 
+    function getActiveDates(): string[] {
+      if (currentMode === '3d' && chart3D) {
+        try {
+          return (chart3D.getOption() as any)?.xAxis3D?.[0]?.data || [];
+        } catch { return []; }
+      }
+      return rawData.dates;
+    }
+
     function showCursor() {
-      const date = rawData.dates[cursorIndex];
+      const activeDates = getActiveDates();
+      const date = activeDates[cursorIndex];
       if (!date) return;
 
       if (currentMode === '3d' && chart3D) {
-        // 3D: 通过 xAxis3D.data 把 rawData 索引映射到显示数据的索引
-        let dIdx = -1;
-        try {
-          const xd: string[] = (chart3D.getOption() as any)?.xAxis3D?.[0]?.data || [];
-          dIdx = xd.findIndex((d: string) => d === date);
-        } catch { /* */ }
-
-        if (dIdx >= 0) {
-          chart3D.dispatchAction({ type: 'downplay' });
-          const seriesCount = current3DType === 'bar' ? 3 : 3;
-          for (let s = 0; s < seriesCount; s++) {
-            chart3D.dispatchAction({ type: 'highlight', seriesIndex: s, dataIndex: dIdx });
-          }
+        // 无条件先清除高亮
+        chart3D.dispatchAction({ type: 'downplay' });
+        
+        // 触发新的高亮 (series 0, 1, 2 分别对应金属、氧化、废料)
+        for (let s = 0; s < 3; s++) {
+          chart3D.dispatchAction({ type: 'highlight', seriesIndex: s, dataIndex: cursorIndex });
         }
 
-        const m = rawData.metal[cursorIndex];
-        const o = rawData.oxide[cursorIndex];
-        const w = rawData.waste[cursorIndex];
-        const displayDate = date.replace(/\./g, '-');
-        cursorInfo.innerHTML = `<b>${displayDate}</b>&nbsp;&nbsp;<span style="color:#f97316">金属 ${m.toLocaleString()}</span>&nbsp;&nbsp;<span style="color:#38bdf8">氧化 ${o.toLocaleString()}</span>&nbsp;&nbsp;<span style="color:#a78bfa">废料 ${w.toLocaleString()}</span> 元/吨`;
-        cursorInfo.style.display = '';
+        // 查找在全量 rawData 中的索引以获取价格
+        const rawIdx = rawData.dates.indexOf(date);
+        if (rawIdx >= 0) {
+          const m = rawData.metal[rawIdx];
+          const o = rawData.oxide[rawIdx];
+          const w = rawData.waste[rawIdx];
+          const displayDate = date.replace(/\./g, '-');
+          cursorInfo.innerHTML = `<b>${displayDate}</b>&nbsp;&nbsp;<span style="color:#f97316">金属 ${m.toLocaleString()}</span>&nbsp;&nbsp;<span style="color:#38bdf8">氧化 ${o.toLocaleString()}</span>&nbsp;&nbsp;<span style="color:#a78bfa">废料 ${w.toLocaleString()}</span> 元/吨`;
+          cursorInfo.style.display = '';
+        }
 
       } else if (currentMode === 'trend') {
         // 2D: showTip 带 dataZoom 自动滚动
@@ -827,16 +834,20 @@ export async function initChart(containerId: string, rawData: ChartData, compare
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
       if (currentMode === 'compare') return;
 
+      const activeDates = getActiveDates();
+      const len = activeDates.length;
+      if (len === 0) return;
+
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        if (cursorIndex < 0) cursorIndex = rawData.dates.length - 1;
+        if (cursorIndex < 0) cursorIndex = len - 1;
         else if (cursorIndex > 0) cursorIndex--;
-        else cursorIndex = rawData.dates.length - 1;
+        else cursorIndex = len - 1;
         showCursor();
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         if (cursorIndex < 0) cursorIndex = 0;
-        else if (cursorIndex < rawData.dates.length - 1) cursorIndex++;
+        else if (cursorIndex < len - 1) cursorIndex++;
         else cursorIndex = 0;
         showCursor();
       } else if (e.key === 'Escape') {
