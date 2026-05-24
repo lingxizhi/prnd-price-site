@@ -222,7 +222,7 @@ function buildOption(data: ChartData) {
 // ── 构建 3D 柱状图配置 ──
 
 function buildBar3DOption(rawData: ChartData, zRange?: { min: number; max: number }) {
-  const data = sampleData(rawData, 400);
+  const data = sampleData(rawData, 9999);
   const { dates, metal, oxide, waste } = data;
 
   const metalData: [number, number, number][] = [];
