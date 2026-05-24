@@ -251,8 +251,15 @@ function buildBar3DOption(rawData: ChartData, zRange?: { min: number; max: numbe
       textStyle: { color: '#94a3b8', fontSize: 12 },
     },
     grid3D: {
-      boxWidth: Math.min(180, dates.length * 3), boxDepth: 50, boxHeight: 80,
-      viewControl: { autoRotate: false, distance: 180, alpha: 25, beta: 50, animation: false },
+      boxWidth: (() => { const w = Math.max(60, Math.min(180, dates.length * 3)); return w; })(),
+      boxDepth: 50, boxHeight: 80,
+      viewControl: { 
+        autoRotate: false, 
+        distance: (() => { const w = Math.max(60, Math.min(180, dates.length * 3)); return Math.max(100, w * 1.25); })(), 
+        alpha: 15, // 降低俯角，更接近平视
+        beta: 90,  // 正视图 (90度表示正对 X-Y 平面)
+        animation: false 
+      },
       light: { main: { intensity: 1.2, alpha: 35, beta: 30 }, ambient: { intensity: 0.6 } },
     },
     xAxis3D: {
@@ -326,8 +333,15 @@ function buildLine3DOption(rawData: ChartData, zRange?: { min: number; max: numb
       textStyle: { color: '#94a3b8', fontSize: 12 },
     },
     grid3D: {
-      boxWidth: Math.min(180, dates.length * 3), boxDepth: 60, boxHeight: 100,
-      viewControl: { autoRotate: false, distance: 180, alpha: 25, beta: 50, animation: false },
+      boxWidth: (() => { const w = Math.max(60, Math.min(180, dates.length * 3)); return w; })(),
+      boxDepth: 60, boxHeight: 100,
+      viewControl: { 
+        autoRotate: false, 
+        distance: (() => { const w = Math.max(60, Math.min(180, dates.length * 3)); return Math.max(110, w * 1.3); })(), 
+        alpha: 15, // 降低俯角，更接近平视
+        beta: 90,  // 正视图
+        animation: false 
+      },
       light: { main: { intensity: 1.2, alpha: 35, beta: 30 }, ambient: { intensity: 0.6 } },
     },
     xAxis3D: {
