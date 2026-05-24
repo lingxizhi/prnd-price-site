@@ -257,7 +257,7 @@ function buildBar3DOption(rawData: ChartData, zRange?: { min: number; max: numbe
         autoRotate: false, 
         distance: (() => { const w = Math.max(60, Math.min(180, dates.length * 3)); return Math.max(100, w * 1.25); })(), 
         alpha: 15, // 降低俯角，更接近平视
-        beta: 90,  // 正视图 (90度表示正对 X-Y 平面)
+        beta: 10,  // X轴平行于屏幕 (微侧10度防遮挡)
         animation: false 
       },
       light: { main: { intensity: 1.2, alpha: 35, beta: 30 }, ambient: { intensity: 0.6 } },
@@ -339,7 +339,7 @@ function buildLine3DOption(rawData: ChartData, zRange?: { min: number; max: numb
         autoRotate: false, 
         distance: (() => { const w = Math.max(60, Math.min(180, dates.length * 3)); return Math.max(110, w * 1.3); })(), 
         alpha: 15, // 降低俯角，更接近平视
-        beta: 90,  // 正视图
+        beta: 10,  // X轴平行于屏幕 (微侧10度防遮挡)
         animation: false 
       },
       light: { main: { intensity: 1.2, alpha: 35, beta: 30 }, ambient: { intensity: 0.6 } },
