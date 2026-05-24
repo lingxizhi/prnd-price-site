@@ -815,7 +815,38 @@ export async function initChart(containerId: string, rawData: ChartData, compare
         }
 
       } else if (currentMode === 'trend') {
-        // 2D: showTip 带 dataZoom 自动滚动
+        // 2D: 处理 dataZoom 视窗跟随
+        let currentZoomStart = 0;
+        let currentZoomEnd = rawData.dates.length - 1;
+        try {
+          const opt = chart.getOption() as any;
+          if (opt?.dataZoom?.[0]) {
+            currentZoomStart = opt.dataZoom[0].startValue ?? 0;
+            currentZoomEnd = opt.dataZoom[0].endValue ?? rawData.dates.length - 1;
+          }
+        } catch { /* */ }
+
+        // 如果光标在视窗外，主动平移 dataZoom
+        if (cursorIndex < currentZoomStart || cursorIndex > currentZoomEnd) {
+          const windowSize = currentZoomEnd - currentZoomStart;
+          let newStart = cursorIndex - Math.floor(windowSize / 2);
+          let newEnd = newStart + windowSize;
+
+          if (newStart < 0) {
+            newStart = 0;
+            newEnd = Math.min(windowSize, rawData.dates.length - 1);
+          } else if (newEnd >= rawData.dates.length) {
+            newEnd = rawData.dates.length - 1;
+            newStart = Math.max(0, newEnd - windowSize);
+          }
+
+          // 保持按百分比调度，因为 startValue/endValue 设置在某些情况下响应较慢
+          const pctStart = (newStart / Math.max(1, rawData.dates.length - 1)) * 100;
+          const pctEnd = (newEnd / Math.max(1, rawData.dates.length - 1)) * 100;
+          chart.dispatchAction({ type: 'dataZoom', start: pctStart, end: pctEnd });
+        }
+
+        // 显示 tooltip
         chart.dispatchAction({ type: 'showTip', seriesIndex: 0, dataIndex: cursorIndex });
         if (chart3D) chart3D.dispatchAction({ type: 'downplay' });
         cursorInfo.style.display = 'none';
