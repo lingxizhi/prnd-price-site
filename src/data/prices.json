@@ -3574,5 +3574,17 @@
     "metalPrNd": 835000,
     "oxidePrNd": 687500,
     "wastePrNd": 710000
+  },
+  {
+    "date": "2026-06-01",
+    "metalPrNd": 840000,
+    "oxidePrNd": 695000,
+    "wastePrNd": 710000
+  },
+  {
+    "date": "2026-06-02",
+    "metalPrNd": 850000,
+    "oxidePrNd": 702500,
+    "wastePrNd": 730000
   }
 ]
